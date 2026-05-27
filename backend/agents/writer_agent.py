@@ -159,11 +159,18 @@ Generate the full Blog + LinkedIn + X Thread now."""
                 messages=[{"role": "user", "content": user_msg}]
             )
             text = response.content[0].text.strip()
+            
+            token_usage = {
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+                "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+            } if hasattr(response, 'usage') else {}
 
             # Extract JSON
+            import json_repair
             m = re.search(r'\{.*\}', text, re.DOTALL)
             if m:
-                result = json.loads(m.group())
+                result = json_repair.loads(m.group())
                 # Enforce: scan for untagged stats
                 blog_body = result.get("blog", {}).get("body", "")
                 li_post = result.get("linkedin", {}).get("post", "")
@@ -179,6 +186,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                     "needs_human_check": result.get("needs_human_check", True),
                     "check_flags": check_flags,
                     "status": "pending_review",
+                    "token_usage": token_usage,
                 }
             else:
                 raise ValueError("No JSON found in Claude response")

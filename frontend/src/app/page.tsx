@@ -33,6 +33,22 @@ export default function Home() {
     }
   };
 
+  const handleViewHistory = async (id: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`http://localhost:8000/history/${id}`);
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.detail || 'Failed to fetch content');
+      setDraftData(result);
+      setTab('generate');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <>
       {/* ── Masthead ──────────────────────────────────────────────── */}
@@ -140,7 +156,7 @@ export default function Home() {
             />
           )
         ) : tab === 'history' ? (
-          <ContentHistory />
+          <ContentHistory onViewContent={handleViewHistory} />
         ) : (
           <AnalyticsDashboard />
         )}

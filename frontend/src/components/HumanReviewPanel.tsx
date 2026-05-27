@@ -106,6 +106,20 @@ export default function HumanReviewPanel({
               </div>
             </>
           )}
+
+          {draftData?.token_usage?.total_tokens && (
+            <>
+              <div style={{ width: 1, height: 36, background: 'var(--rule-strong)' }} />
+              <div>
+                <span style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--muted)' }}>Tokens Used</span>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent)', marginTop: 4, display: 'flex', gap: 8 }}>
+                  <span>In: {draftData.token_usage.input_tokens}</span>
+                  <span style={{ color: 'var(--muted)' }}>|</span>
+                  <span>Out: {draftData.token_usage.output_tokens}</span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 0 }}>

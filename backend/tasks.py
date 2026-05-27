@@ -43,6 +43,7 @@ def generate_content_task(self, topic: str, angle: str, tone: str):
             db=db
         )
 
+        import json
         blog_body = draft.get("blog", {}).get("body", "")
         needs_check = draft.get("needs_human_check", True)
 
@@ -50,7 +51,7 @@ def generate_content_task(self, topic: str, angle: str, tone: str):
             topic=topic,
             icp_score=score,
             platform="all",
-            content=blog_body,
+            content=json.dumps(draft),
             status="pending_review",
             needs_human_check=needs_check,
         )

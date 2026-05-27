@@ -199,6 +199,7 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
     )
 
     # Save to ContentLog (one row per generation run)
+    import json
     blog_body = draft.get("blog", {}).get("body", "")
     needs_check = draft.get("needs_human_check", True)
 
@@ -206,7 +207,7 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
         topic=request.topic,
         icp_score=score,
         platform="all",
-        content=blog_body,
+        content=json.dumps(draft),
         status="pending_review",
         needs_human_check=needs_check,
     )
@@ -229,6 +230,7 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
         "x_thread": draft.get("x_thread", {}),
         "needs_human_check": needs_check,
         "check_flags": draft.get("check_flags", []),
+        "token_usage": draft.get("token_usage", {}),
     }
 
 @app.post("/generate/async")
@@ -277,3 +279,34 @@ def get_analytics(db: Session = Depends(get_db)):
     analytics_agent = AnalyticsAgent()
     metrics = analytics_agent.get_metrics()
     return metrics
+
+@app.get("/history/{content_id}")
+def get_history_item(content_id: int, db: Session = Depends(get_db)):
+    """
+    Fetch a specific generated item to review it again.
+    """
+    log = db.query(models.ContentLog).filter(models.ContentLog.id == content_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Item not found")
+        
+    import json_repair
+    try:
+        draft = json_repair.loads(log.content)
+    except Exception:
+        draft = {"blog": {"body": log.content}} # Fallback for old records
+        
+    return {
+        "status": "success",
+        "content_id": log.id,
+        "icp": {
+            "score": log.icp_score,
+            "decision": "APPROVED" if log.icp_score >= 0.65 else "REJECTED",
+        },
+        "topic": log.topic,
+        "blog": draft.get("blog", {}),
+        "linkedin": draft.get("linkedin", {}),
+        "x_thread": draft.get("x_thread", {}),
+        "needs_human_check": log.needs_human_check,
+        "check_flags": draft.get("check_flags", []),
+        "token_usage": draft.get("token_usage", {})
+    }

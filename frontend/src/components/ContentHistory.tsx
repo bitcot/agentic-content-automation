@@ -28,7 +28,7 @@ function timeAgo(iso: string) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-export default function ContentHistory() {
+export default function ContentHistory({ onViewContent }: { onViewContent: (id: number) => void }) {
   const [items, setItems] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
@@ -121,10 +121,12 @@ export default function ContentHistory() {
             {items.map((item, i) => (
               <tr
                 key={item.id}
+                onClick={() => onViewContent(item.id)}
                 style={{
                   borderBottom: 'var(--rule)',
                   transition: 'background 0.1s',
                   background: i % 2 === 0 ? 'transparent' : 'rgba(242,237,228,0.01)',
+                  cursor: 'pointer',
                 }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(200,255,0,0.03)')}
                 onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : 'rgba(242,237,228,0.01)')}
