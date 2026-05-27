@@ -141,6 +141,22 @@ def research_agent(topic: str, db: Session = Depends(get_db)):
         "data": research_data
     }
 
+class EnhanceRequest(BaseModel):
+    topic: str
+
+@app.post("/enhance-topic")
+def enhance_topic_endpoint(request: EnhanceRequest, db: Session = Depends(get_db)):
+    """
+    Takes a basic topic and returns an ICP-aligned enhanced topic and angle.
+    """
+    icp_agent = ICPAgent()
+    enhanced = icp_agent.enhance_topic(request.topic, db=db)
+    return {
+        "status": "success",
+        "enhanced_topic": enhanced.get("enhanced_topic", request.topic),
+        "enhanced_angle": enhanced.get("enhanced_angle", "")
+    }
+
 @app.post("/generate")
 def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
     """

@@ -81,7 +81,7 @@ Score below 0.5 = REJECT (blocked for 7 days).
 
         try:
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20240620",
+                model="claude-opus-4-7",
                 max_tokens=512,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_msg}]
@@ -96,3 +96,37 @@ Score below 0.5 = REJECT (blocked for 7 days).
             return {"score": 0.5, "decision": "RESHAPE", "reasoning": "Could not parse score.", "persona_match": "unknown", "reshape_suggestion": ""}
         except Exception as e:
             return {"score": 0.5, "decision": "RESHAPE", "reasoning": f"ICP agent error: {str(e)}", "persona_match": "unknown", "reshape_suggestion": ""}
+
+    def enhance_topic(self, topic: str, db: Session = None) -> dict:
+        """Takes a basic topic and suggests an ICP-aligned title and angle."""
+        ctx = {}
+        if db:
+            ctx = load_brand_context(db, ["persona_1_cto", "avoid_topics", "vertical_healthcare_ai", "vertical_devops_security"])
+            
+        system_prompt = f"""You are an expert Content Strategist for Bitcot. 
+Your goal is to take a basic, generic topic and enhance it to perfectly align with Bitcot's Ideal Customer Profile (ICP).
+
+Target Personas: {ctx.get("persona_1_cto", "CTO/VP Engineering")}
+Avoid: {ctx.get("avoid_topics", "Generic listicles, non-enterprise content")}
+
+Return ONLY a JSON object with this exact structure:
+{{
+  "enhanced_topic": "<The new, punchy, enterprise-focused topic title>",
+  "enhanced_angle": "<1-sentence angle/hook to guide the writer>"
+}}
+"""
+        try:
+            response = self.client.messages.create(
+                model="claude-opus-4-7",
+                max_tokens=256,
+                system=system_prompt,
+                messages=[{"role": "user", "content": f"Enhance this basic topic: {topic}"}]
+            )
+            text = response.content[0].text.strip()
+            import json, re
+            m = re.search(r'\{.*\}', text, re.DOTALL)
+            if m:
+                return json.loads(m.group())
+            return {"enhanced_topic": topic, "enhanced_angle": "Focus on enterprise ROI."}
+        except Exception as e:
+            return {"enhanced_topic": topic, "enhanced_angle": f"Error: {str(e)}"}

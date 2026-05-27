@@ -153,7 +153,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
 
         try:
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20240620",
+                model="claude-opus-4-7",
                 max_tokens=4096,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_msg}]
