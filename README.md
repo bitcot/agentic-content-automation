@@ -23,6 +23,44 @@
 
 ## 🏗️ System Architecture
 
+```mermaid
+graph TD
+    %% Core Infrastructure
+    User([User / Content Manager]) --> UI[Next.js Dashboard]
+    UI --> API[FastAPI Backend]
+    
+    %% Agents & Logic
+    API --> Celery[Celery Task Queue]
+    Celery --> ICPAgent[ICP Agent]
+    Celery --> WriterAgent[Writer Agent]
+    Celery --> RegenAgent[Regenerate Agent]
+    
+    %% Brain & Memory
+    ICPAgent -.-> Supabase[(Supabase PostgreSQL)]
+    WriterAgent -.-> Supabase
+    RegenAgent -.-> Supabase
+    
+    %% External Services
+    WriterAgent --> Claude[Anthropic Claude 3]
+    WriterAgent --> Pollinations[Pollinations.ai Image Gen]
+    
+    %% Data Models inside DB
+    Supabase -.-> BrandContext[brand_context]
+    Supabase -.-> ContentLogs[content_logs]
+    Supabase -.-> PerfMetrics[performance_metrics]
+    
+    %% Styling
+    classDef ui fill:#000,stroke:#C8FF00,stroke-width:2px,color:#fff;
+    classDef api fill:#070707,stroke:#fff,stroke-width:1px,color:#fff;
+    classDef agent fill:#1A1A18,stroke:#C8FF00,stroke-width:1px,color:#C8FF00;
+    classDef db fill:#3ECF8E,stroke:#fff,stroke-width:1px,color:#000;
+    
+    class UI ui;
+    class API,Celery api;
+    class ICPAgent,WriterAgent,RegenAgent agent;
+    class Supabase,BrandContext,ContentLogs,PerfMetrics db;
+```
+
 The project is split into a heavily decoupled frontend and backend:
 
 *   **Frontend (`/frontend`):** Next.js 14, React, Tailwind CSS, TypeScript.
