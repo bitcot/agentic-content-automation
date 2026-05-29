@@ -12,7 +12,7 @@ class ICPAgent:
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-    def score_topic(self, topic: str, angle: str = "", db: Session = None) -> dict:
+    def score_topic(self, topic: str, angle: str = "", target_persona: str = "", db: Session = None) -> dict:
         """
         Score a topic against Bitcot's ICP. Returns score (0.0–1.0) + decision.
         Loads live brand context from memory layer before scoring.
@@ -37,7 +37,17 @@ class ICPAgent:
             ctx.get("persona_3_pm", "Product Manager — researcher before decision."),
         ])
 
+        # Read playbook
+        playbook_path = os.path.join(os.path.dirname(__file__), "content_playbook.txt")
+        playbook_content = ""
+        if os.path.exists(playbook_path):
+            with open(playbook_path, "r", encoding="utf-8") as f:
+                playbook_content = f.read()
+
         system_prompt = f"""You are Bitcot's ICP Scoring Agent. Your job is to score content topics against our ideal client profile.
+
+=== CONTENT WRITING FOUNDATIONS PLAYBOOK ===
+{playbook_content}
 
 === IDEAL PERSONAS ===
 {personas_block}
@@ -78,6 +88,8 @@ Score below 0.5 = REJECT (blocked for 7 days).
         user_msg = f"Topic: {topic}"
         if angle:
             user_msg += f"\nProposed angle: {angle}"
+        if target_persona:
+            user_msg += f"\nTarget Persona: {target_persona}"
 
         try:
             response = self.client.messages.create(
@@ -97,36 +109,53 @@ Score below 0.5 = REJECT (blocked for 7 days).
         except Exception as e:
             return {"score": 0.5, "decision": "RESHAPE", "reasoning": f"ICP agent error: {str(e)}", "persona_match": "unknown", "reshape_suggestion": ""}
 
-    def enhance_topic(self, topic: str, db: Session = None) -> dict:
-        """Takes a basic topic and suggests an ICP-aligned title and angle."""
+    def enhance_topic(self, topic: str, angle: str = "", target_persona: str = "", db: Session = None) -> dict:
+        """Takes a basic topic and suggests a highly creative, ICP-aligned title and angle."""
         ctx = {}
         if db:
             ctx = load_brand_context(db, ["persona_1_cto", "avoid_topics", "vertical_healthcare_ai", "vertical_devops_security"])
             
-        system_prompt = f"""You are an expert Content Strategist for Bitcot. 
-Your goal is to take a basic, generic topic and enhance it to perfectly align with Bitcot's Ideal Customer Profile (ICP).
+        # Read playbook
+        playbook_path = os.path.join(os.path.dirname(__file__), "content_playbook.txt")
+        playbook_content = ""
+        if os.path.exists(playbook_path):
+            with open(playbook_path, "r", encoding="utf-8") as f:
+                playbook_content = f.read()
 
-Target Personas: {ctx.get("persona_1_cto", "CTO/VP Engineering")}
+        system_prompt = f"""You are an elite, highly creative Content Strategist for Bitcot. 
+Your goal is to take a basic, generic topic and enhance it into a punchy, unique, and deeply contrarian or highly specific enterprise topic.
+
+=== CONTENT WRITING FOUNDATIONS PLAYBOOK ===
+{playbook_content}
+
+CRITICAL INSTRUCTION: Avoid formulaic patterns. Do NOT just output "Unlocking ROI in Enterprise AI" every time. Be wildly creative, specific, and provocative while still targeting our ICP.
+If the user provides an 'angle' or opinion, you MUST amplify and build upon that specific angle rather than falling back to generic data.
+
+Target Personas: {target_persona if target_persona else ctx.get("persona_1_cto", "CTO/VP Engineering")}
 Avoid: {ctx.get("avoid_topics", "Generic listicles, non-enterprise content")}
 
 Return ONLY a JSON object with this exact structure:
 {{
-  "enhanced_topic": "<The new, punchy, enterprise-focused topic title>",
-  "enhanced_angle": "<1-sentence angle/hook to guide the writer>"
+  "enhanced_topic": "<A highly unique, punchy, non-formulaic enterprise-focused topic title>",
+  "enhanced_angle": "<1-2 sentence controversial or specific hook/angle building on the user's input>"
 }}
 """
+        user_msg = f"Enhance this basic topic: {topic}"
+        if angle:
+            user_msg += f"\nUser's proposed angle/opinion to amplify: {angle}"
+
         try:
             response = self.client.messages.create(
                 model="claude-opus-4-7",
-                max_tokens=256,
+                max_tokens=350,
                 system=system_prompt,
-                messages=[{"role": "user", "content": f"Enhance this basic topic: {topic}"}]
+                messages=[{"role": "user", "content": user_msg}]
             )
             text = response.content[0].text.strip()
             import json, re
             m = re.search(r'\{.*\}', text, re.DOTALL)
             if m:
                 return json.loads(m.group())
-            return {"enhanced_topic": topic, "enhanced_angle": "Focus on enterprise ROI."}
+            return {"enhanced_topic": topic, "enhanced_angle": "Focus on highly specific enterprise applications."}
         except Exception as e:
             return {"enhanced_topic": topic, "enhanced_angle": f"Error: {str(e)}"}

@@ -22,6 +22,8 @@ export default function ManualInputPanel({
   const [angle, setAngle]       = useState("");
   const [imageIdea, setImageIdea] = useState("");
   const [tone, setTone]         = useState("thought_leader");
+  const [targetPersona, setTargetPersona] = useState("");
+  const [authorVoice, setAuthorVoice] = useState("bitcot");
   const [activePlatforms, setActivePlatforms] = useState(
     new Set(["LinkedIn", "X Thread", "Blog"])
   );
@@ -43,7 +45,7 @@ export default function ManualInputPanel({
       const res = await fetch("http://localhost:8000/enhance-topic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic })
+        body: JSON.stringify({ topic, angle, target_persona: targetPersona })
       });
       const data = await res.json();
       if (data.status === "success") {
@@ -133,6 +135,22 @@ export default function ManualInputPanel({
           />
         </div>
 
+        <div>
+          <label className="field-label">Target Persona (Who is this for?)</label>
+          <input
+            type="text"
+            value={targetPersona}
+            onChange={e => setTargetPersona(e.target.value)}
+            placeholder="e.g. CTOs concerned about cloud costs, or CEOs looking for ROI"
+            list="persona-suggestions"
+          />
+          <datalist id="persona-suggestions">
+            <option value="CTO / VP Engineering (Technical & Architecture focus)" />
+            <option value="CEO / Founder (Business outcomes, ROI & Strategy)" />
+            <option value="Product Manager (User adoption & Time-to-market)" />
+          </datalist>
+        </div>
+
         {/* Tone row */}
         <div>
           <label className="field-label">Tone</label>
@@ -163,6 +181,33 @@ export default function ManualInputPanel({
           </div>
         </div>
 
+        {/* Author Voice row */}
+        <div>
+          <label className="field-label">Author Voice</label>
+          <div className="platform-toggle-group">
+            <div className="platform-toggle">
+              <input
+                type="radio"
+                id="voice-bitcot"
+                name="authorVoice"
+                checked={authorVoice === "bitcot"}
+                onChange={() => setAuthorVoice("bitcot")}
+              />
+              <label htmlFor="voice-bitcot">Bitcot Brand</label>
+            </div>
+            <div className="platform-toggle">
+              <input
+                type="radio"
+                id="voice-raj"
+                name="authorVoice"
+                checked={authorVoice === "raj"}
+                onChange={() => setAuthorVoice("raj")}
+              />
+              <label htmlFor="voice-raj">Raj Sanghvi (CEO)</label>
+            </div>
+          </div>
+        </div>
+
         {/* Platform toggles */}
         <div>
           <label className="field-label">Publish To</label>
@@ -185,7 +230,7 @@ export default function ManualInputPanel({
         <div style={{ paddingTop: 8, display: 'flex', alignItems: 'center', gap: 20 }}>
           <button
             className="btn btn-primary"
-            onClick={() => onGenerate({ topic, angle, imageIdea, tone, platforms: [...activePlatforms] })}
+            onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, platforms: [...activePlatforms] })}
             disabled={isLoading || !topic.trim()}
             style={{ padding: '12px 32px', fontSize: 12 }}
           >

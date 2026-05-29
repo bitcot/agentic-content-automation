@@ -21,7 +21,13 @@ export default function Home() {
       const res = await fetch('http://localhost:8000/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: data.topic, angle: data.angle, tone: data.tone }),
+        body: JSON.stringify({ 
+          topic: data.topic, 
+          angle: data.angle, 
+          target_persona: data.targetPersona,
+          tone: data.tone,
+          author_voice: data.authorVoice
+        }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.detail || 'Generation failed');
@@ -46,6 +52,61 @@ export default function Home() {
       setError(err.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!draftData?.content_id) {
+       alert("No content ID found");
+       return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+       const res = await fetch('http://localhost:8000/schedule', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+            content_id: draftData.content_id,
+            platform: 'all',
+            schedule_time: new Date().toISOString()
+         })
+       });
+       const result = await res.json();
+       if (!res.ok) throw new Error(result.detail || 'Scheduling failed');
+       alert('Content approved and queued for publishing!'); 
+       setDraftData(null);
+    } catch (err: any) {
+       setError(err.message);
+    } finally {
+       setIsLoading(false);
+    }
+  };
+
+  const handleRegenerate = async (target_part: string, feedback: string) => {
+    if (!draftData?.content_id) {
+       alert("No content ID found");
+       return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+       const res = await fetch('http://localhost:8000/regenerate', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+            content_id: draftData.content_id,
+            target_part,
+            feedback
+         })
+       });
+       const result = await res.json();
+       if (!res.ok) throw new Error(result.detail || 'Regeneration failed');
+       setDraftData(result);
+    } catch (err: any) {
+       setError(err.message);
+    } finally {
+       setIsLoading(false);
     }
   };
 
@@ -152,7 +213,8 @@ export default function Home() {
             <HumanReviewPanel
               draftData={draftData}
               onReject={() => setDraftData(null)}
-              onApprove={() => { alert('Content approved and queued for publishing!'); setDraftData(null); }}
+              onApprove={handleApprove}
+              onRegenerate={handleRegenerate}
             />
           )
         ) : tab === 'history' ? (

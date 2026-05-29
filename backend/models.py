@@ -14,6 +14,8 @@ class ContentLog(Base):
     needs_human_check = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     published_at = Column(DateTime, nullable=True)
+    parent_id = Column(Integer, nullable=True) # For versioning
+    version = Column(Integer, default=1)
 
 class PerformanceMetric(Base):
     __tablename__ = "performance_metrics"

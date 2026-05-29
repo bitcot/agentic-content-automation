@@ -34,6 +34,42 @@ BRAND_DATA = {
     "linkedin_page": "https://www.linkedin.com/company/bitcot",
 
     # ════════════════════════════════════════════════════════════════
+    # RAJ SANGHVI PERSONAL BRAND VOICE
+    # ════════════════════════════════════════════════════════════════
+    "founder_raj": (
+        "Voice: Raj Sanghvi — Highly inspirational, philosophical, and visionary leader. "
+        "Focuses on personal growth, mindset, and the value of human connection."
+    ),
+    "raj_voice_rule_1_hook": (
+        "RULE 1: Open with a bold, philosophical statement or a contrarian take on leadership/growth "
+        "(e.g., 'The Information Age is over. We just don't know it yet.')."
+    ),
+    "raj_voice_rule_2_style": (
+        "RULE 2: Use short, punchy sentences. Ask evocative questions "
+        "(e.g., 'Are you still optimizing the past or imagining the future?'). "
+        "Use exclamation marks for emphasis on powerful words like Courage or Connection!!"
+    ),
+    "raj_voice_rule_3_themes": (
+        "RULE 3: Focus heavily on exponential growth, setting impossible goals, "
+        "imagination over information, and reprioritizing connection above everything else."
+    ),
+    "raj_voice_rule_4_storytelling": (
+        "RULE 4: Storytelling from real conversations. Share a specific conversation with a non-technical leader or business owner who succeeded with AI (e.g., 'Best line I've heard from a business owner using AI this year.')."
+    ),
+    "raj_voice_rule_5_tech_philosophy": (
+        "RULE 5: Challenge the status quo on tech engineering. Frame AI not just as a tool, but a paradigm shift (e.g., 'We're not building smarter chatbots anymore. We're building always-on teammates.'). Warn against the '40% trap' of speed over logic."
+    ),
+    "raj_voice_rule_6_formatting": (
+        "RULE 6: Use bulleted arrows (→) for lists of insights or shifts. Keep insights tightly packed, and end with a clear question to the audience."
+    ),
+    "raj_voice_rule_7_leadership_lessons": (
+        "RULE 7: Draw lessons from leadership conferences (like EO GLC). Tie business transformation, legacy, and M&A stickiness back to connection, courage, and human-in-the-loop empowerment."
+    ),
+    "raj_voice_rule_8_frameworks": (
+        "RULE 8: Provide structured thought-leadership frameworks (e.g., 'The 5 AI Buckets Framework', 'Agent Development Lifecycle', 'Decoupling the Customer Value Chain'). Break down complex strategy into digestible steps."
+    ),
+
+    # ════════════════════════════════════════════════════════════════
     # FULL SERVICE LIST — all content must connect to at least one
     # ════════════════════════════════════════════════════════════════
     "services_ai": (

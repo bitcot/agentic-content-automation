@@ -7,7 +7,7 @@ from agents.seo_agent import SEOAgent
 from agents.writer_agent import WriterAgent
 
 @celery_app.task(bind=True, name="generate_content_task")
-def generate_content_task(self, topic: str, angle: str, tone: str):
+def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: str = ""):
     """
     Background task to run the heavy agentic pipeline.
     """
@@ -40,6 +40,7 @@ def generate_content_task(self, topic: str, angle: str, tone: str):
             topic=topic,
             icp_result=icp_result,
             tone=tone,
+            image_idea=image_idea,
             db=db
         )
 

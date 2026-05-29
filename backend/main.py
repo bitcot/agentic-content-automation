@@ -48,10 +48,18 @@ class TopicRequest(BaseModel):
     keywords: list[str]
     mode: str = "manual" # manual, scheduled, spike
 
+class EnhanceRequest(BaseModel):
+    topic: str
+    angle: str = ""
+    target_persona: str = ""
+
 class GenerateRequest(BaseModel):
     topic: str
     angle: str = ""
+    target_persona: str = ""
     tone: str = "thought_leader"
+    author_voice: str = "bitcot"
+    image_idea: str = ""
 
 @app.get("/")
 def read_root():
@@ -143,14 +151,16 @@ def research_agent(topic: str, db: Session = Depends(get_db)):
 
 class EnhanceRequest(BaseModel):
     topic: str
+    angle: str = ""
+    target_persona: str = ""
 
 @app.post("/enhance-topic")
 def enhance_topic_endpoint(request: EnhanceRequest, db: Session = Depends(get_db)):
     """
-    Takes a basic topic and returns an ICP-aligned enhanced topic and angle.
+    Takes a basic topic and user angle, and returns a highly creative, ICP-aligned enhanced topic and angle.
     """
     icp_agent = ICPAgent()
-    enhanced = icp_agent.enhance_topic(request.topic, db=db)
+    enhanced = icp_agent.enhance_topic(request.topic, angle=request.angle, target_persona=request.target_persona, db=db)
     return {
         "status": "success",
         "enhanced_topic": enhanced.get("enhanced_topic", request.topic),
@@ -168,7 +178,7 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
     writer_agent = WriterAgent()
 
     # Step 1: ICP Alignment — loads personas, geo rules, verticals from DB
-    icp_result = icp_agent.score_topic(request.topic, angle=request.angle, db=db)
+    icp_result = icp_agent.score_topic(request.topic, angle=request.angle, target_persona=request.target_persona, db=db)
     score = icp_result.get("score", 0.0)
     decision = icp_result.get("decision", "REJECT")
 
@@ -194,7 +204,10 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
     draft = writer_agent.generate_draft(
         topic=request.topic,
         icp_result=icp_result,
+        target_persona=request.target_persona,
         tone=request.tone,
+        author_voice=request.author_voice,
+        image_idea=request.image_idea,
         db=db
     )
 
@@ -239,7 +252,7 @@ def generate_content_async(request: GenerateRequest):
     Triggers the generation pipeline in the background using Celery.
     Prevents API timeouts during heavy Claude tasks.
     """
-    task = generate_content_task.delay(request.topic, request.angle, request.tone)
+    task = generate_content_task.delay(request.topic, request.angle, request.tone, request.image_idea)
     return {"status": "processing", "task_id": task.id}
 
 @app.get("/generate/status/{task_id}")
@@ -256,19 +269,75 @@ def get_task_status(task_id: str):
         response = {"state": task.state, "error": str(task.info)}
     return response
 
+class RegenerateRequest(BaseModel):
+    content_id: int
+    target_part: str
+    feedback: str
+
+@app.post("/regenerate")
+def regenerate_content_endpoint(request: RegenerateRequest, db: Session = Depends(get_db)):
+    from agents.regenerate_agent import RegenerateAgent
+    import json
+    
+    agent = RegenerateAgent()
+    try:
+        new_draft = agent.regenerate_content(db, request.content_id, request.target_part, request.feedback)
+        
+        # Get original log for versioning
+        old_log = db.query(models.ContentLog).filter(models.ContentLog.id == request.content_id).first()
+        new_version = (old_log.version or 1) + 1
+        
+        # Save as new row
+        log = models.ContentLog(
+            topic=old_log.topic,
+            icp_score=old_log.icp_score,
+            platform=old_log.platform,
+            content=json.dumps(new_draft),
+            status="pending_review",
+            needs_human_check=new_draft.get("needs_human_check", True),
+            parent_id=old_log.id,
+            version=new_version
+        )
+        db.add(log)
+        
+        # Update old log to mark as replaced/archived? We'll just leave it as draft or rejected
+        old_log.status = "draft"
+        
+        db.commit()
+        db.refresh(log)
+        
+        return {
+            "status": "success",
+            "content_id": log.id,
+            "version": log.version,
+            "topic": new_draft.get("topic"),
+            "blog": new_draft.get("blog", {}),
+            "linkedin": new_draft.get("linkedin", {}),
+            "x_thread": new_draft.get("x_thread", {}),
+            "needs_human_check": log.needs_human_check,
+            "check_flags": new_draft.get("check_flags", [])
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+class ScheduleRequest(BaseModel):
+    content_id: int
+    platform: str
+    schedule_time: str
+
 @app.post("/schedule")
-def schedule_post(content_id: int, platform: str, schedule_time: str, db: Session = Depends(get_db)):
+def schedule_post(request: ScheduleRequest, db: Session = Depends(get_db)):
     """
     Schedules an approved post.
     """
     scheduler = Scheduler()
     from datetime import datetime
     try:
-        dt = datetime.fromisoformat(schedule_time)
+        dt = datetime.fromisoformat(request.schedule_time)
     except ValueError:
         dt = datetime.utcnow()
         
-    result = scheduler.schedule_content(content_id, platform, dt)
+    result = scheduler.schedule_content(request.content_id, request.platform, dt)
     return result
 
 @app.get("/analytics")

@@ -35,10 +35,12 @@ export default function HumanReviewPanel({
   draftData,
   onReject,
   onApprove,
+  onRegenerate,
 }: {
   draftData: any;
   onReject: () => void;
   onApprove: () => void;
+  onRegenerate?: (target_part: string, feedback: string) => void;
 }) {
   // New API shape: icp, blog, linkedin, x_thread, check_flags on root
   const icp        = draftData?.icp;
@@ -53,6 +55,9 @@ export default function HumanReviewPanel({
   const approved = score >= 0.65;
 
   const [activeTab, setActiveTab] = useState<'blog' | 'linkedin' | 'x'>('blog');
+  const [showRegen, setShowRegen] = useState(false);
+  const [regenTarget, setRegenTarget] = useState('all');
+  const [regenFeedback, setRegenFeedback] = useState('');
 
   return (
     <div style={{ animation: 'fadeUp 0.35s ease' }}>
@@ -116,6 +121,12 @@ export default function HumanReviewPanel({
                   <span>In: {draftData.token_usage.input_tokens}</span>
                   <span style={{ color: 'var(--muted)' }}>|</span>
                   <span>Out: {draftData.token_usage.output_tokens}</span>
+                  {draftData.token_usage.estimated_cost_usd !== undefined && (
+                    <>
+                      <span style={{ color: 'var(--muted)' }}>|</span>
+                      <span>Cost: ${draftData.token_usage.estimated_cost_usd.toFixed(4)}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </>
@@ -124,7 +135,7 @@ export default function HumanReviewPanel({
 
         <div style={{ display: 'flex', gap: 0 }}>
           <button className="btn btn-danger" onClick={onReject} style={{ fontSize: 11 }}>Reject</button>
-          <button className="btn" style={{ fontSize: 11, marginLeft: -1 }}>Regenerate</button>
+          <button className="btn" onClick={() => setShowRegen(true)} style={{ fontSize: 11, marginLeft: -1 }}>Regenerate</button>
           <button className="btn btn-primary" onClick={onApprove} style={{ fontSize: 11, marginLeft: -1 }}>
             Approve & Schedule
           </button>
@@ -181,6 +192,29 @@ export default function HumanReviewPanel({
                 <span style={{ color: 'var(--muted)', marginRight: 8 }}>META:</span>{blog.meta_description}
               </p>
             )}
+            
+            {blog.image_url && (
+              <a href={blog.image_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block' }}>
+                <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(242,237,228,0.03)', border: 'var(--rule)', display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', transition: 'background 0.2s' }} 
+                     onMouseOver={(e) => e.currentTarget.style.background = 'rgba(242,237,228,0.06)'}
+                     onMouseOut={(e) => e.currentTarget.style.background = 'rgba(242,237,228,0.03)'}>
+                  <div style={{ color: 'var(--accent)', marginTop: 2 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      Generated Header Image (16:9)
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </span>
+                    {blog.image_prompt && <p style={{ fontSize: 11, color: 'var(--paper)', margin: 0, fontStyle: 'italic', lineHeight: 1.5 }}>{blog.image_prompt}</p>}
+                  </div>
+                </div>
+              </a>
+            )}
             <div className="draft-area" contentEditable suppressContentEditableWarning spellCheck={false} style={{ minHeight: 340 }}>
               {formatText(blog.body || '—')}
             </div>
@@ -202,6 +236,29 @@ export default function HumanReviewPanel({
                 <span key={i} style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--font-mono)', padding: '3px 8px', border: '1px solid rgba(200,255,0,0.2)', background: 'var(--accent-dim)' }}>{h}</span>
               ))}
             </div>
+
+            {linkedin.image_url && (
+              <a href={linkedin.image_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block' }}>
+                <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(242,237,228,0.03)', border: 'var(--rule)', display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', transition: 'background 0.2s' }}
+                     onMouseOver={(e) => e.currentTarget.style.background = 'rgba(242,237,228,0.06)'}
+                     onMouseOut={(e) => e.currentTarget.style.background = 'rgba(242,237,228,0.03)'}>
+                  <div style={{ color: 'var(--accent)', marginTop: 2 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      Generated Post Graphic (1:1)
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </span>
+                    {linkedin.image_prompt && <p style={{ fontSize: 11, color: 'var(--paper)', margin: 0, fontStyle: 'italic', lineHeight: 1.5 }}>{linkedin.image_prompt}</p>}
+                  </div>
+                </div>
+              </a>
+            )}
             <div className="draft-area" contentEditable suppressContentEditableWarning spellCheck={false} style={{ minHeight: 200 }}>
               {formatText(linkedin.post || '—')}
             </div>
@@ -235,12 +292,8 @@ export default function HumanReviewPanel({
         <div style={{ padding: '24px 32px', borderRight: 'var(--rule)' }}>
           <p className="panel-label" style={{ margin: 0, marginBottom: 14, paddingBottom: 10, borderBottom: 'var(--rule)' }}>Image Brief</p>
           <p style={{ color: 'var(--muted-warm)', fontSize: 12, lineHeight: 1.7, marginBottom: 14 }}>
-            Minimalist infographic visualising the hook stat or contrarian reframe. High contrast, no stock photos. Bold headline overlay.
+            Images are now automatically generated by the AI agent based on the context of the generated draft using Pollinations.ai.
           </p>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: 'var(--paper)' }}>
-            <input type="checkbox" style={{ width: 'auto', accentColor: 'var(--accent)' }} />
-            Approve image brief
-          </label>
         </div>
 
         <div style={{ padding: '24px 32px' }}>
@@ -255,6 +308,51 @@ export default function HumanReviewPanel({
           </div>
         </div>
       </div>
+
+      {/* Regenerate Modal */}
+      {showRegen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.8)', zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            background: 'var(--ink)', border: 'var(--rule-strong)', padding: '32px',
+            width: 440, maxWidth: '90%', boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+            position: 'relative'
+          }}>
+            <h3 style={{ margin: 0, marginBottom: 20, fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--paper)' }}>Regenerate Content</h3>
+            
+            <label className="field-label" style={{ marginBottom: 8, color: 'var(--accent)' }}>What to regenerate?</label>
+            <select className="input-field" value={regenTarget} onChange={e => setRegenTarget(e.target.value)} style={{ marginBottom: 20, width: '100%', background: 'rgba(255,255,255,0.05)', color: '#fff' }}>
+              <option value="all">Everything</option>
+              <option value="blog">Blog Post</option>
+              <option value="linkedin">LinkedIn Post</option>
+              <option value="x_thread">X Thread</option>
+              <option value="blog_image">Blog Image</option>
+              <option value="linkedin_image">LinkedIn Image</option>
+            </select>
+
+            <label className="field-label" style={{ marginBottom: 8, color: 'var(--accent)' }}>Feedback / Issue</label>
+            <textarea 
+              className="input-field" 
+              rows={4} 
+              value={regenFeedback}
+              onChange={e => setRegenFeedback(e.target.value)}
+              placeholder="E.g., The hook is too generic, make it more controversial..."
+              style={{ marginBottom: 28, resize: 'none', width: '100%', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+            />
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={() => setShowRegen(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => {
+                setShowRegen(false);
+                onRegenerate?.(regenTarget, regenFeedback);
+              }}>Submit</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

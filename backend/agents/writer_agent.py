@@ -14,7 +14,7 @@ class WriterAgent:
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-    def generate_draft(self, topic: str, icp_result: dict, tone: str = "thought_leader", db: Session = None) -> dict:
+    def generate_draft(self, topic: str, icp_result: dict, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", db: Session = None) -> dict:
         """
         Generate multi-format content (Blog, LinkedIn, X thread).
         Loads all voice rules, approved stats, and format rules from memory layer first.
@@ -22,12 +22,8 @@ class WriterAgent:
         # Load rich context from memory layer
         ctx = {}
         if db:
-            ctx = load_brand_context(db, [
-                "founder",
-                "voice_rule_1_hook", "voice_rule_2_brand_mention", "voice_rule_3_paragraphs",
-                "voice_rule_4_h2_endings", "voice_rule_5_real_numbers", "voice_rule_6_tone",
-                "voice_rule_7_banned_words", "voice_rule_8_blog_cta",
-                "voice_rule_9_x_threads", "voice_rule_10_linkedin_url",
+            keys_to_load = [
+                "voice_rule_8_blog_cta", "voice_rule_9_x_threads", "voice_rule_10_linkedin_url",
                 "hook_pattern_a", "hook_pattern_b", "hook_pattern_c", "hook_pattern_d",
                 "hook_banned_a", "hook_banned_b", "hook_banned_c",
                 "format_linkedin_articles", "format_linkedin_hashtags",
@@ -38,23 +34,58 @@ class WriterAgent:
                 "persona_1_cto", "persona_2_ceo", "persona_3_pm",
                 "case_studies", "proof_points",
                 "competitor_post_inspiration",
-            ])
+            ]
+            
+            if author_voice == "raj":
+                keys_to_load.extend([
+                    "founder_raj",
+                    "raj_voice_rule_1_hook", "raj_voice_rule_2_style", "raj_voice_rule_3_themes",
+                    "raj_voice_rule_4_storytelling", "raj_voice_rule_5_tech_philosophy",
+                    "raj_voice_rule_6_formatting", "raj_voice_rule_7_leadership_lessons",
+                    "raj_voice_rule_8_frameworks",
+                ])
+            else:
+                keys_to_load.extend([
+                    "founder",
+                    "voice_rule_1_hook", "voice_rule_2_brand_mention", "voice_rule_3_paragraphs",
+                    "voice_rule_4_h2_endings", "voice_rule_5_real_numbers", "voice_rule_6_tone",
+                    "voice_rule_7_banned_words",
+                ])
 
-        persona_match = icp_result.get("persona_match", "CTO/VP Engineering")
+            ctx = load_brand_context(db, keys_to_load)
+
+        persona_match = target_persona if target_persona else icp_result.get("persona_match", "CTO/VP Engineering")
 
         # Build voice rules block
-        voice_rules = "\n".join([
-            ctx.get("voice_rule_1_hook", ""),
-            ctx.get("voice_rule_2_brand_mention", ""),
-            ctx.get("voice_rule_3_paragraphs", ""),
-            ctx.get("voice_rule_4_h2_endings", ""),
-            ctx.get("voice_rule_5_real_numbers", ""),
-            ctx.get("voice_rule_6_tone", ""),
-            ctx.get("voice_rule_7_banned_words", ""),
-            ctx.get("voice_rule_8_blog_cta", ""),
-            ctx.get("voice_rule_9_x_threads", ""),
-            ctx.get("voice_rule_10_linkedin_url", ""),
-        ])
+        if author_voice == "raj":
+            founder_profile = ctx.get("founder_raj", "Voice: Raj Sanghvi — Highly inspirational and visionary.")
+            voice_rules = "\n".join([
+                ctx.get("raj_voice_rule_1_hook", ""),
+                ctx.get("raj_voice_rule_2_style", ""),
+                ctx.get("raj_voice_rule_3_themes", ""),
+                ctx.get("raj_voice_rule_4_storytelling", ""),
+                ctx.get("raj_voice_rule_5_tech_philosophy", ""),
+                ctx.get("raj_voice_rule_6_formatting", ""),
+                ctx.get("raj_voice_rule_7_leadership_lessons", ""),
+                ctx.get("raj_voice_rule_8_frameworks", ""),
+                ctx.get("voice_rule_8_blog_cta", ""),
+                ctx.get("voice_rule_9_x_threads", ""),
+                ctx.get("voice_rule_10_linkedin_url", ""),
+            ])
+        else:
+            founder_profile = ctx.get("founder", "Voice: confident, direct, founder who has seen things go wrong many times.")
+            voice_rules = "\n".join([
+                ctx.get("voice_rule_1_hook", ""),
+                ctx.get("voice_rule_2_brand_mention", ""),
+                ctx.get("voice_rule_3_paragraphs", ""),
+                ctx.get("voice_rule_4_h2_endings", ""),
+                ctx.get("voice_rule_5_real_numbers", ""),
+                ctx.get("voice_rule_6_tone", ""),
+                ctx.get("voice_rule_7_banned_words", ""),
+                ctx.get("voice_rule_8_blog_cta", ""),
+                ctx.get("voice_rule_9_x_threads", ""),
+                ctx.get("voice_rule_10_linkedin_url", ""),
+            ])
 
         # Build hook patterns block
         hook_patterns = "\n".join([
@@ -80,13 +111,31 @@ class WriterAgent:
         # Case studies for reference
         case_studies = ctx.get("case_studies", "")
 
+        # Read playbook
+        playbook_path = os.path.join(os.path.dirname(__file__), "content_playbook.txt")
+        playbook_content = ""
+        if os.path.exists(playbook_path):
+            with open(playbook_path, "r", encoding="utf-8") as f:
+                playbook_content = f.read()
+
+        image_instruction = ""
+        if image_idea:
+            image_instruction = f"\n\n═══ USER IMAGE IDEA ═══\nThe user has specifically requested this visual direction for the images: '{image_idea}'. Make sure your generated image_prompt strictly reflects this idea while still obeying the playbook rules.\n"
+
         system_prompt = f"""You are ghostwriting content for Raj Sanghvi, Founder of Bitcot Technology.
-{ctx.get("founder", "Voice: confident, direct, founder who has seen things go wrong many times.")}
+{founder_profile}{image_instruction}
+=== CONTENT WRITING FOUNDATIONS PLAYBOOK ===
+{playbook_content}
 
 You will produce THREE pieces of content for the same topic: a Blog Post, a LinkedIn Post, and an X Thread.
 
 ═══ VOICE RULES — NON-NEGOTIABLE ═══
 {voice_rules}
+
+═══ ANTI-JARGON RULES (CRITICAL) ═══
+1. NEVER use the em dash (" — ") or the en dash (" – "). This is a dead giveaway for AI-generated text. Use commas, colons, or parentheses instead.
+2. ZERO fluff. Do NOT use phrases like "In today's fast-paced digital landscape", "In the rapidly evolving world of", "It's no secret that", or "Navigating the complexities of".
+3. Write for cynical software engineering buyers (CTOs, senior developers). If they read this and it sounds like a marketer wrote it, they will bounce. Use direct, unpretentious, sharp language. Focus on systems, trade-offs, architecture, and business outcomes without sugarcoating.
 
 ═══ COMPETITOR INSPIRATION (Successful Post Structures to Model) ═══
 {ctx.get("competitor_post_inspiration", "")}
@@ -124,14 +173,16 @@ Return ONLY valid JSON with this exact structure:
     "body": "...",
     "seo_keywords": ["keyword1", "keyword2", "keyword3"],
     "internal_links": ["service page 1", "service page 2"],
-    "word_count": <integer>
+    "word_count": <integer>,
+    "image_prompt": "highly detailed image generation prompt for the blog header (16:9)"
   }},
   "linkedin": {{
     "post": "...",
     "hook_pattern_used": "A|B|C|D",
     "hashtags": ["#tag1", "#tag2", "#tag3"],
     "first_comment": "Blog link: https://www.bitcot.com/blog/[slug]",
-    "estimated_engagement": "..."
+    "estimated_engagement": "...",
+    "image_prompt": "highly detailed image generation prompt for linkedin post graphic (1:1)"
   }},
   "x_thread": {{
     "tweets": ["tweet 1 hook", "tweet 2", "tweet 3", "tweet 4", "tweet 5", "tweet 6 DM hook"],
@@ -154,20 +205,28 @@ Generate the full Blog + LinkedIn + X Thread now."""
         try:
             response = self.client.messages.create(
                 model="claude-opus-4-7",
-                max_tokens=4096,
+                max_tokens=8192,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_msg}]
             )
             text = response.content[0].text.strip()
             
-            token_usage = {
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-                "total_tokens": response.usage.input_tokens + response.usage.output_tokens
-            } if hasattr(response, 'usage') else {}
+            if hasattr(response, 'usage'):
+                inp = response.usage.input_tokens
+                out = response.usage.output_tokens
+                cost = (inp * 0.000015) + (out * 0.000075)
+                token_usage = {
+                    "input_tokens": inp,
+                    "output_tokens": out,
+                    "total_tokens": inp + out,
+                    "estimated_cost_usd": round(cost, 4)
+                }
+            else:
+                token_usage = {}
 
             # Extract JSON
             import json_repair
+            import urllib.parse
             m = re.search(r'\{.*\}', text, re.DOTALL)
             if m:
                 result = json_repair.loads(m.group())
@@ -176,12 +235,26 @@ Generate the full Blog + LinkedIn + X Thread now."""
                 li_post = result.get("linkedin", {}).get("post", "")
                 check_flags = result.get("check_flags", [])
 
+                blog_data = result.get("blog", {})
+                if "image_prompt" in blog_data and blog_data["image_prompt"]:
+                    if author_voice == "bitcot":
+                        blog_data["image_prompt"] += ", featuring a prominent sleek logo with the exact text 'bitcot' (where 'bit' is white and 'cot' is bright cyan blue) on a dark background, highly detailed corporate tech aesthetic, dark mode, glassmorphism, 8k resolution, cinematic lighting"
+                    encoded_prompt = urllib.parse.quote(blog_data["image_prompt"])
+                    blog_data["image_url"] = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1200&height=630&nologo=true"
+                
+                li_data = result.get("linkedin", {})
+                if "image_prompt" in li_data and li_data["image_prompt"]:
+                    if author_voice == "bitcot":
+                        li_data["image_prompt"] += ", featuring a prominent sleek logo with the exact text 'bitcot' (where 'bit' is white and 'cot' is bright cyan blue) on a dark background, highly detailed corporate tech aesthetic, dark mode, glassmorphism, 8k resolution, cinematic lighting"
+                    encoded_prompt = urllib.parse.quote(li_data["image_prompt"])
+                    li_data["image_url"] = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1080&nologo=true"
+
                 return {
                     "topic": topic,
                     "icp_score": icp_result.get("score", 0.0),
                     "persona_match": persona_match,
-                    "blog": result.get("blog", {}),
-                    "linkedin": result.get("linkedin", {}),
+                    "blog": blog_data,
+                    "linkedin": li_data,
                     "x_thread": result.get("x_thread", {}),
                     "needs_human_check": result.get("needs_human_check", True),
                     "check_flags": check_flags,
