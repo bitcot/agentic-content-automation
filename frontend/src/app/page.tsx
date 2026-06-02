@@ -26,7 +26,8 @@ export default function Home() {
           angle: data.angle, 
           target_persona: data.targetPersona,
           tone: data.tone,
-          author_voice: data.authorVoice
+          author_voice: data.authorVoice,
+          image_idea: data.imageIdea
         }),
       });
       const result = await res.json();

@@ -2,6 +2,7 @@ import os
 import json
 import re
 import anthropic
+from openai import OpenAI
 from sqlalchemy.orm import Session
 
 def load_brand_context(db: Session, keys: list[str]) -> dict:
@@ -12,7 +13,7 @@ def load_brand_context(db: Session, keys: list[str]) -> dict:
 
 class WriterAgent:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=120.0)
 
     def generate_draft(self, topic: str, icp_result: dict, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", db: Session = None) -> dict:
         """
@@ -227,6 +228,16 @@ Generate the full Blog + LinkedIn + X Thread now."""
             # Extract JSON
             import json_repair
             import urllib.parse
+            from openai import OpenAI
+
+            openai_key = os.getenv("OPENAI_API_KEY", "")
+            openai_client = None
+            if openai_key.strip():
+                try:
+                    openai_client = OpenAI(api_key=openai_key)
+                except Exception:
+                    pass
+
             m = re.search(r'\{.*\}', text, re.DOTALL)
             if m:
                 result = json_repair.loads(m.group())
@@ -239,15 +250,47 @@ Generate the full Blog + LinkedIn + X Thread now."""
                 if "image_prompt" in blog_data and blog_data["image_prompt"]:
                     if author_voice == "bitcot":
                         blog_data["image_prompt"] += ", featuring a prominent sleek logo with the exact text 'bitcot' (where 'bit' is white and 'cot' is bright cyan blue) on a dark background, highly detailed corporate tech aesthetic, dark mode, glassmorphism, 8k resolution, cinematic lighting"
-                    encoded_prompt = urllib.parse.quote(blog_data["image_prompt"])
-                    blog_data["image_url"] = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1200&height=630&nologo=true"
+                    try:
+                        if openai_client:
+                            img_res = openai_client.images.generate(
+                                model="gpt-image-1-mini",
+                                prompt=blog_data["image_prompt"],
+                                n=1,
+                                size="1024x1024"
+                            )
+                            img_data = img_res.data[0]
+                            if hasattr(img_data, "b64_json") and img_data.b64_json:
+                                blog_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
+                            else:
+                                blog_data["image_url"] = img_data.url
+                        else:
+                            blog_data["image_url"] = ""
+                    except Exception as e:
+                        blog_data["image_url"] = ""
+                        print(f"OpenAI Image Gen failed: {e}")
                 
                 li_data = result.get("linkedin", {})
                 if "image_prompt" in li_data and li_data["image_prompt"]:
                     if author_voice == "bitcot":
                         li_data["image_prompt"] += ", featuring a prominent sleek logo with the exact text 'bitcot' (where 'bit' is white and 'cot' is bright cyan blue) on a dark background, highly detailed corporate tech aesthetic, dark mode, glassmorphism, 8k resolution, cinematic lighting"
-                    encoded_prompt = urllib.parse.quote(li_data["image_prompt"])
-                    li_data["image_url"] = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1080&nologo=true"
+                    try:
+                        if openai_client:
+                            img_res = openai_client.images.generate(
+                                model="gpt-image-1-mini",
+                                prompt=li_data["image_prompt"],
+                                n=1,
+                                size="1024x1024"
+                            )
+                            img_data = img_res.data[0]
+                            if hasattr(img_data, "b64_json") and img_data.b64_json:
+                                li_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
+                            else:
+                                li_data["image_url"] = img_data.url
+                        else:
+                            li_data["image_url"] = ""
+                    except Exception as e:
+                        li_data["image_url"] = ""
+                        print(f"OpenAI Image Gen failed: {e}")
 
                 return {
                     "topic": topic,

@@ -194,10 +194,8 @@ export default function HumanReviewPanel({
             )}
             
             {blog.image_url && (
-              <a href={blog.image_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block' }}>
-                <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(242,237,228,0.03)', border: 'var(--rule)', display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', transition: 'background 0.2s' }} 
-                     onMouseOver={(e) => e.currentTarget.style.background = 'rgba(242,237,228,0.06)'}
-                     onMouseOut={(e) => e.currentTarget.style.background = 'rgba(242,237,228,0.03)'}>
+              <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(242,237,228,0.03)', border: 'var(--rule)' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
                   <div style={{ color: 'var(--accent)', marginTop: 2 }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -208,12 +206,14 @@ export default function HumanReviewPanel({
                   <div>
                     <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                       Generated Header Image (16:9)
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                     </span>
                     {blog.image_prompt && <p style={{ fontSize: 11, color: 'var(--paper)', margin: 0, fontStyle: 'italic', lineHeight: 1.5 }}>{blog.image_prompt}</p>}
                   </div>
                 </div>
-              </a>
+                <a href={blog.image_url} target="_blank" rel="noopener noreferrer">
+                  <img src={blog.image_url} alt="Generated Header" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                </a>
+              </div>
             )}
             <div className="draft-area" contentEditable suppressContentEditableWarning spellCheck={false} style={{ minHeight: 340 }}>
               {formatText(blog.body || '—')}
@@ -238,10 +238,8 @@ export default function HumanReviewPanel({
             </div>
 
             {linkedin.image_url && (
-              <a href={linkedin.image_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block' }}>
-                <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(242,237,228,0.03)', border: 'var(--rule)', display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', transition: 'background 0.2s' }}
-                     onMouseOver={(e) => e.currentTarget.style.background = 'rgba(242,237,228,0.06)'}
-                     onMouseOut={(e) => e.currentTarget.style.background = 'rgba(242,237,228,0.03)'}>
+              <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(242,237,228,0.03)', border: 'var(--rule)' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
                   <div style={{ color: 'var(--accent)', marginTop: 2 }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -252,12 +250,14 @@ export default function HumanReviewPanel({
                   <div>
                     <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                       Generated Post Graphic (1:1)
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                     </span>
                     {linkedin.image_prompt && <p style={{ fontSize: 11, color: 'var(--paper)', margin: 0, fontStyle: 'italic', lineHeight: 1.5 }}>{linkedin.image_prompt}</p>}
                   </div>
                 </div>
-              </a>
+                <a href={linkedin.image_url} target="_blank" rel="noopener noreferrer">
+                  <img src={linkedin.image_url} alt="Generated LinkedIn Graphic" style={{ width: '100%', maxWidth: '300px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                </a>
+              </div>
             )}
             <div className="draft-area" contentEditable suppressContentEditableWarning spellCheck={false} style={{ minHeight: 200 }}>
               {formatText(linkedin.post || '—')}

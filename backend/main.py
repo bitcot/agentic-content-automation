@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 import models
 from database import engine, get_db
 from pydantic import BaseModel
+from dotenv import load_dotenv
+load_dotenv()
 
 from agents.icp_agent import ICPAgent
 from agents.seo_agent import SEOAgent

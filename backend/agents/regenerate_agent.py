@@ -4,12 +4,13 @@ import re
 import urllib.parse
 import anthropic
 import json_repair
+from openai import OpenAI
 from sqlalchemy.orm import Session
 from models import ContentLog
 
 class RegenerateAgent:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=120.0)
 
     def regenerate_content(self, db: Session, content_id: int, target_part: str, feedback: str) -> dict:
         log = db.query(ContentLog).filter(ContentLog.id == content_id).first()
@@ -76,28 +77,66 @@ When writing an image_prompt, ALWAYS write comma-separated keywords (no full sen
             raise ValueError("Could not parse JSON from Claude's response")
 
         # Merge updated part back into draft
+        from openai import OpenAI
+        
+        openai_key = os.getenv("OPENAI_API_KEY", "")
+        openai_client = None
+        if openai_key.strip():
+            try:
+                openai_client = OpenAI(api_key=openai_key)
+            except Exception:
+                pass
+
         if target_part == "blog":
             draft["blog"] = updated_part
             if "image_prompt" in updated_part and updated_part["image_prompt"]:
-                encoded = urllib.parse.quote(updated_part["image_prompt"])
-                draft["blog"]["image_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1200&height=630&nologo=true"
+                try:
+                    if openai_client:
+                        img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=updated_part["image_prompt"], n=1, size="1024x1024")
+                        img_data = img_res.data[0]
+                        draft["blog"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
+                    else:
+                        draft["blog"]["image_url"] = ""
+                except Exception as e:
+                    print(f"OpenAI gen failed: {e}")
         elif target_part == "linkedin":
             draft["linkedin"] = updated_part
             if "image_prompt" in updated_part and updated_part["image_prompt"]:
-                encoded = urllib.parse.quote(updated_part["image_prompt"])
-                draft["linkedin"]["image_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1080&height=1080&nologo=true"
+                try:
+                    if openai_client:
+                        img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=updated_part["image_prompt"], n=1, size="1024x1024")
+                        img_data = img_res.data[0]
+                        draft["linkedin"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
+                    else:
+                        draft["linkedin"]["image_url"] = ""
+                except Exception as e:
+                    print(f"OpenAI gen failed: {e}")
         elif target_part == "x_thread":
             draft["x_thread"] = updated_part
         elif target_part == "blog_image":
             draft["blog"]["image_prompt"] = updated_part.get("image_prompt", "")
             if draft["blog"]["image_prompt"]:
-                encoded = urllib.parse.quote(draft["blog"]["image_prompt"])
-                draft["blog"]["image_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1200&height=630&nologo=true"
+                try:
+                    if openai_client:
+                        img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=draft["blog"]["image_prompt"], n=1, size="1024x1024")
+                        img_data = img_res.data[0]
+                        draft["blog"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
+                    else:
+                        draft["blog"]["image_url"] = ""
+                except Exception as e:
+                    print(f"OpenAI gen failed: {e}")
         elif target_part == "linkedin_image":
             draft["linkedin"]["image_prompt"] = updated_part.get("image_prompt", "")
             if draft["linkedin"]["image_prompt"]:
-                encoded = urllib.parse.quote(draft["linkedin"]["image_prompt"])
-                draft["linkedin"]["image_url"] = f"https://image.pollinations.ai/prompt/{encoded}?width=1080&height=1080&nologo=true"
+                try:
+                    if openai_client:
+                        img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=draft["linkedin"]["image_prompt"], n=1, size="1024x1024")
+                        img_data = img_res.data[0]
+                        draft["linkedin"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
+                    else:
+                        draft["linkedin"]["image_url"] = ""
+                except Exception as e:
+                    print(f"OpenAI gen failed: {e}")
         elif target_part == "all":
             draft["blog"] = updated_part.get("blog", draft.get("blog"))
             draft["linkedin"] = updated_part.get("linkedin", draft.get("linkedin"))

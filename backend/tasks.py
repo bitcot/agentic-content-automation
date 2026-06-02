@@ -1,6 +1,8 @@
 import asyncio
 from celery_app import celery_app
 from database import SessionLocal
+from dotenv import load_dotenv
+load_dotenv()
 import models
 from agents.icp_agent import ICPAgent
 from agents.seo_agent import SEOAgent
