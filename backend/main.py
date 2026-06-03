@@ -54,6 +54,8 @@ class EnhanceRequest(BaseModel):
     topic: str
     angle: str = ""
     target_persona: str = ""
+    direction: str = ""
+    image_idea: str = ""
 
 class GenerateRequest(BaseModel):
     topic: str
@@ -62,6 +64,8 @@ class GenerateRequest(BaseModel):
     tone: str = "thought_leader"
     author_voice: str = "bitcot"
     image_idea: str = ""
+    use_web_search: bool = False
+    image_source: str = "ai"
 
 @app.get("/")
 def read_root():
@@ -151,22 +155,25 @@ def research_agent(topic: str, db: Session = Depends(get_db)):
         "data": research_data
     }
 
-class EnhanceRequest(BaseModel):
-    topic: str
-    angle: str = ""
-    target_persona: str = ""
-
 @app.post("/enhance-topic")
 def enhance_topic_endpoint(request: EnhanceRequest, db: Session = Depends(get_db)):
     """
     Takes a basic topic and user angle, and returns a highly creative, ICP-aligned enhanced topic and angle.
     """
     icp_agent = ICPAgent()
-    enhanced = icp_agent.enhance_topic(request.topic, angle=request.angle, target_persona=request.target_persona, db=db)
+    enhanced = icp_agent.enhance_topic(
+        topic=request.topic,
+        angle=request.angle,
+        target_persona=request.target_persona,
+        direction=request.direction,
+        image_idea=request.image_idea,
+        db=db
+    )
     return {
         "status": "success",
         "enhanced_topic": enhanced.get("enhanced_topic", request.topic),
-        "enhanced_angle": enhanced.get("enhanced_angle", "")
+        "enhanced_angle": enhanced.get("enhanced_angle", ""),
+        "enhanced_image_idea": enhanced.get("enhanced_image_idea", "")
     }
 
 @app.post("/generate")
@@ -184,16 +191,23 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
     score = icp_result.get("score", 0.0)
     decision = icp_result.get("decision", "REJECT")
 
-    if decision == "REJECT" or score < 0.65:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Topic rejected by ICP Agent. "
-                f"Score: {score:.2f}. "
-                f"Reason: {icp_result.get('reasoning', 'Does not match Bitcot ICP.')} "
-                f"Suggestion: {icp_result.get('reshape_suggestion', '')}"
+    if score < 0.65:
+        if icp_result.get("reshape_suggestion"):
+            request.angle = icp_result["reshape_suggestion"]
+            score = 0.65
+            icp_result["score"] = score
+            decision = "RESHAPE_ADOPTED"
+            icp_result["decision"] = decision
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Topic rejected by ICP Agent. "
+                    f"Score: {score:.2f}. "
+                    f"Reason: {icp_result.get('reasoning', 'Does not match Bitcot ICP.')} "
+                    f"Suggestion: {icp_result.get('reshape_suggestion', '')}"
+                )
             )
-        )
 
     # Step 2: SEO Analysis (keyword context)
     try:
@@ -205,11 +219,14 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
     # Step 3: Writer — loads all voice rules + approved stats from DB
     draft = writer_agent.generate_draft(
         topic=request.topic,
+        angle=request.angle,
         icp_result=icp_result,
         target_persona=request.target_persona,
         tone=request.tone,
         author_voice=request.author_voice,
         image_idea=request.image_idea,
+        use_web_search=request.use_web_search,
+        image_source=request.image_source,
         db=db
     )
 
@@ -254,7 +271,7 @@ def generate_content_async(request: GenerateRequest):
     Triggers the generation pipeline in the background using Celery.
     Prevents API timeouts during heavy Claude tasks.
     """
-    task = generate_content_task.delay(request.topic, request.angle, request.tone, request.image_idea)
+    task = generate_content_task.delay(request.topic, request.angle, request.tone, request.image_idea, request.use_web_search, request.image_source)
     return {"status": "processing", "task_id": task.id}
 
 @app.get("/generate/status/{task_id}")

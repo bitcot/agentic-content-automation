@@ -36,6 +36,9 @@ class ICPAgent:
             ctx.get("persona_2_ceo", "CEO/Founder — high-value decision maker."),
             ctx.get("persona_3_pm", "Product Manager — researcher before decision."),
         ])
+        
+        if target_persona:
+            personas_block += f"\n\nCRITICAL OVERRIDE: The user has explicitly specified a custom persona for this generation: '{target_persona}'. You MUST accept this persona as a high-value target and score the topic based on how well it appeals to '{target_persona}', ignoring if it doesn't match the default 3 personas."
 
         # Read playbook
         playbook_path = os.path.join(os.path.dirname(__file__), "content_playbook.txt")
@@ -64,6 +67,14 @@ class ICPAgent:
 === TOPICS TO REJECT ===
 {ctx.get("avoid_topics", "India-focused outsourcing, generic listicles, non-enterprise content.")}
 {ctx.get("matrix_q3_rethink", "Low engagement + low conversion topics.")}
+
+=== BROAD SOFTWARE ICP RULES (CRITICAL) ===
+1. We are a software development company. High-value topics include NOT ONLY CTO decision pieces, but also:
+   - General tech trending news (e.g. LangChain events, AI breakthroughs, new frontend frameworks).
+   - Developer-focused insights or pain points.
+   - Product Manager strategy pieces.
+2. DO NOT reject event recaps or trending software topics just because they lack "CTO-specific pain points". These serve as excellent top-of-funnel brand awareness content.
+3. Only reject topics that are entirely unrelated to software engineering, tech, AI, or B2B business.
 
 === BANNED HOOKS (reject if topic only works with these) ===
 {ctx.get("hook_banned_a", "")}
@@ -109,7 +120,7 @@ Score below 0.5 = REJECT (blocked for 7 days).
         except Exception as e:
             return {"score": 0.5, "decision": "RESHAPE", "reasoning": f"ICP agent error: {str(e)}", "persona_match": "unknown", "reshape_suggestion": ""}
 
-    def enhance_topic(self, topic: str, angle: str = "", target_persona: str = "", db: Session = None) -> dict:
+    def enhance_topic(self, topic: str, angle: str = "", target_persona: str = "", direction: str = "", image_idea: str = "", db: Session = None) -> dict:
         """Takes a basic topic and suggests a highly creative, ICP-aligned title and angle."""
         ctx = {}
         if db:
@@ -130,6 +141,7 @@ Your goal is to take a basic, generic topic and enhance it into a punchy, unique
 
 CRITICAL INSTRUCTION: Avoid formulaic patterns. Do NOT just output "Unlocking ROI in Enterprise AI" every time. Be wildly creative, specific, and provocative while still targeting our ICP.
 If the user provides an 'angle' or opinion, you MUST amplify and build upon that specific angle rather than falling back to generic data.
+If the user provides a 'direction' for enhancement, you MUST aggressively steer the topic, angle, and image idea toward that exact direction.
 
 Target Personas: {target_persona if target_persona else ctx.get("persona_1_cto", "CTO/VP Engineering")}
 Avoid: {ctx.get("avoid_topics", "Generic listicles, non-enterprise content")}
@@ -137,12 +149,17 @@ Avoid: {ctx.get("avoid_topics", "Generic listicles, non-enterprise content")}
 Return ONLY a JSON object with this exact structure:
 {{
   "enhanced_topic": "<A highly unique, punchy, non-formulaic enterprise-focused topic title>",
-  "enhanced_angle": "<1-2 sentence controversial or specific hook/angle building on the user's input>"
+  "enhanced_angle": "<1-2 sentence controversial or specific hook/angle building on the user's input>",
+  "enhanced_image_idea": "<A highly detailed image idea building on the user's input, optimized for the direction>"
 }}
 """
         user_msg = f"Enhance this basic topic: {topic}"
         if angle:
             user_msg += f"\nUser's proposed angle/opinion to amplify: {angle}"
+        if direction:
+            user_msg += f"\nSpecific Direction from user (MUST FOLLOW): {direction}"
+        if image_idea:
+            user_msg += f"\nOriginal Image Idea: {image_idea}"
 
         try:
             response = self.client.messages.create(
@@ -156,6 +173,6 @@ Return ONLY a JSON object with this exact structure:
             m = re.search(r'\{.*\}', text, re.DOTALL)
             if m:
                 return json.loads(m.group())
-            return {"enhanced_topic": topic, "enhanced_angle": "Focus on highly specific enterprise applications."}
+            return {"enhanced_topic": topic, "enhanced_angle": "Focus on highly specific enterprise applications.", "enhanced_image_idea": image_idea}
         except Exception as e:
             return {"enhanced_topic": topic, "enhanced_angle": f"Error: {str(e)}"}

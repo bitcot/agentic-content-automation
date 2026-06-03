@@ -15,7 +15,7 @@ class WriterAgent:
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=120.0)
 
-    def generate_draft(self, topic: str, icp_result: dict, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", db: Session = None) -> dict:
+    def generate_draft(self, topic: str, angle: str = "", icp_result: dict = None, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", db: Session = None) -> dict:
         """
         Generate multi-format content (Blog, LinkedIn, X thread).
         Loads all voice rules, approved stats, and format rules from memory layer first.
@@ -123,8 +123,15 @@ class WriterAgent:
         if image_idea:
             image_instruction = f"\n\n═══ USER IMAGE IDEA ═══\nThe user has specifically requested this visual direction for the images: '{image_idea}'. Make sure your generated image_prompt strictly reflects this idea while still obeying the playbook rules.\n"
 
+        research_context = ""
+        if use_web_search:
+            from agents.research_agent import ResearchAgent
+            research_agent = ResearchAgent()
+            search_results = research_agent.search_topic(topic)
+            research_context = f"\n\n═══ LATEST RESEARCH CONTEXT ═══\nThe user has requested real-time factual grounding for this topic. Use the following real-time facts to ground your content, add specific details, and avoid writing generic statements:\n{search_results}\n"
+
         system_prompt = f"""You are ghostwriting content for Raj Sanghvi, Founder of Bitcot Technology.
-{founder_profile}{image_instruction}
+{founder_profile}{image_instruction}{research_context}
 === CONTENT WRITING FOUNDATIONS PLAYBOOK ===
 {playbook_content}
 
@@ -195,13 +202,20 @@ Return ONLY valid JSON with this exact structure:
 
 CRITICAL: Maximum 3 hashtags on LinkedIn. Blog URL never in LinkedIn post body — it goes in first_comment only."""
 
+        if icp_result is None:
+            icp_result = {}
+            
         user_msg = f"""Topic: {topic}
+Angle/Opinion: {angle}
 ICP Score: {icp_result.get('score', 0.7):.2f}
 Persona: {persona_match}
 Tone: {tone}
 ICP Reasoning: {icp_result.get('reasoning', '')}
 
 Generate the full Blog + LinkedIn + X Thread now."""
+
+        if use_web_search:
+            user_msg += "\n\nCRITICAL INSTRUCTION: You MUST heavily integrate the actual facts, product names, metrics, and details from the WEb Search Context provided above. Do not just write a generic philosophical piece. Ground your contrarian angle strictly in the concrete events/announcements retrieved from the web search."
 
         try:
             response = self.client.messages.create(
@@ -248,49 +262,63 @@ Generate the full Blog + LinkedIn + X Thread now."""
 
                 blog_data = result.get("blog", {})
                 if "image_prompt" in blog_data and blog_data["image_prompt"]:
-                    if author_voice == "bitcot":
-                        blog_data["image_prompt"] += ", featuring a prominent sleek logo with the exact text 'bitcot' (where 'bit' is white and 'cot' is bright cyan blue) on a dark background, highly detailed corporate tech aesthetic, dark mode, glassmorphism, 8k resolution, cinematic lighting"
-                    try:
-                        if openai_client:
-                            img_res = openai_client.images.generate(
-                                model="gpt-image-1-mini",
-                                prompt=blog_data["image_prompt"],
-                                n=1,
-                                size="1024x1024"
-                            )
-                            img_data = img_res.data[0]
-                            if hasattr(img_data, "b64_json") and img_data.b64_json:
-                                blog_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
-                            else:
-                                blog_data["image_url"] = img_data.url
-                        else:
+                    if image_source == "web":
+                        try:
+                            from agents.research_agent import ResearchAgent
+                            research_agent = ResearchAgent()
+                            blog_data["image_url"] = research_agent.search_image(topic + " " + image_idea)
+                        except Exception as e:
                             blog_data["image_url"] = ""
-                    except Exception as e:
-                        blog_data["image_url"] = ""
-                        print(f"OpenAI Image Gen failed: {e}")
+                            print(f"Web Image search failed: {e}")
+                    else:
+                        try:
+                            if openai_client:
+                                img_res = openai_client.images.generate(
+                                    model="gpt-image-1-mini",
+                                    prompt=blog_data["image_prompt"],
+                                    n=1,
+                                    size="1024x1024"
+                                )
+                                img_data = img_res.data[0]
+                                if hasattr(img_data, "b64_json") and img_data.b64_json:
+                                    blog_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
+                                else:
+                                    blog_data["image_url"] = img_data.url
+                            else:
+                                blog_data["image_url"] = ""
+                        except Exception as e:
+                            blog_data["image_url"] = ""
+                            print(f"OpenAI Image Gen failed: {e}")
                 
                 li_data = result.get("linkedin", {})
                 if "image_prompt" in li_data and li_data["image_prompt"]:
-                    if author_voice == "bitcot":
-                        li_data["image_prompt"] += ", featuring a prominent sleek logo with the exact text 'bitcot' (where 'bit' is white and 'cot' is bright cyan blue) on a dark background, highly detailed corporate tech aesthetic, dark mode, glassmorphism, 8k resolution, cinematic lighting"
-                    try:
-                        if openai_client:
-                            img_res = openai_client.images.generate(
-                                model="gpt-image-1-mini",
-                                prompt=li_data["image_prompt"],
-                                n=1,
-                                size="1024x1024"
-                            )
-                            img_data = img_res.data[0]
-                            if hasattr(img_data, "b64_json") and img_data.b64_json:
-                                li_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
-                            else:
-                                li_data["image_url"] = img_data.url
-                        else:
+                    if image_source == "web":
+                        try:
+                            from agents.research_agent import ResearchAgent
+                            research_agent = ResearchAgent()
+                            li_data["image_url"] = research_agent.search_image(topic + " " + image_idea)
+                        except Exception as e:
                             li_data["image_url"] = ""
-                    except Exception as e:
-                        li_data["image_url"] = ""
-                        print(f"OpenAI Image Gen failed: {e}")
+                            print(f"Web Image search failed: {e}")
+                    else:
+                        try:
+                            if openai_client:
+                                img_res = openai_client.images.generate(
+                                    model="gpt-image-1-mini",
+                                    prompt=li_data["image_prompt"],
+                                    n=1,
+                                    size="1024x1024"
+                                )
+                                img_data = img_res.data[0]
+                                if hasattr(img_data, "b64_json") and img_data.b64_json:
+                                    li_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
+                                else:
+                                    li_data["image_url"] = img_data.url
+                            else:
+                                li_data["image_url"] = ""
+                        except Exception as e:
+                            li_data["image_url"] = ""
+                            print(f"OpenAI Image Gen failed: {e}")
 
                 return {
                     "topic": topic,

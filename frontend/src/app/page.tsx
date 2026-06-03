@@ -27,7 +27,9 @@ export default function Home() {
           target_persona: data.targetPersona,
           tone: data.tone,
           author_voice: data.authorVoice,
-          image_idea: data.imageIdea
+          image_idea: data.imageIdea,
+          use_web_search: data.useWebSearch,
+          image_source: data.imageSource
         }),
       });
       const result = await res.json();

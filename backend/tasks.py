@@ -9,7 +9,7 @@ from agents.seo_agent import SEOAgent
 from agents.writer_agent import WriterAgent
 
 @celery_app.task(bind=True, name="generate_content_task")
-def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: str = ""):
+def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: str = "", use_web_search: bool = False, image_source: str = "ai"):
     """
     Background task to run the heavy agentic pipeline.
     """
@@ -24,11 +24,16 @@ def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: s
         score = icp_result.get("score", 0.0)
         decision = icp_result.get("decision", "REJECT")
 
-        if decision == "REJECT" or score < 0.65:
-            return {
-                "status": "rejected",
-                "reason": icp_result.get("reasoning", "Failed ICP check")
-            }
+        if score < 0.65:
+            if icp_result.get("reshape_suggestion"):
+                angle = icp_result["reshape_suggestion"]
+                icp_result["score"] = 0.65
+                icp_result["decision"] = "RESHAPE_ADOPTED"
+            else:
+                return {
+                    "status": "rejected",
+                    "reason": icp_result.get("reasoning", "Failed ICP check")
+                }
 
         # 2. SEO
         try:
@@ -40,9 +45,12 @@ def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: s
         # 3. Writer
         draft = writer_agent.generate_draft(
             topic=topic,
+            angle=angle,
             icp_result=icp_result,
             tone=tone,
             image_idea=image_idea,
+            use_web_search=use_web_search,
+            image_source=image_source,
             db=db
         )
 

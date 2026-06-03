@@ -21,9 +21,12 @@ export default function ManualInputPanel({
   const [topic, setTopic]       = useState("");
   const [angle, setAngle]       = useState("");
   const [imageIdea, setImageIdea] = useState("");
+  const [enhanceDirection, setEnhanceDirection] = useState("");
   const [tone, setTone]         = useState("thought_leader");
   const [targetPersona, setTargetPersona] = useState("");
   const [authorVoice, setAuthorVoice] = useState("bitcot");
+  const [useWebSearch, setUseWebSearch] = useState(false);
+  const [imageSource, setImageSource] = useState("ai");
   const [activePlatforms, setActivePlatforms] = useState(
     new Set(["LinkedIn", "X Thread", "Blog"])
   );
@@ -45,12 +48,15 @@ export default function ManualInputPanel({
       const res = await fetch("http://localhost:8000/enhance-topic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, angle, target_persona: targetPersona })
+        body: JSON.stringify({ topic, angle, target_persona: targetPersona, direction: enhanceDirection, image_idea: imageIdea })
       });
       const data = await res.json();
       if (data.status === "success") {
         setTopic(data.enhanced_topic);
         setAngle(data.enhanced_angle);
+        if (data.enhanced_image_idea) {
+          setImageIdea(data.enhanced_image_idea);
+        }
       }
     } catch (e) {
       console.error("Failed to enhance topic:", e);
@@ -116,6 +122,16 @@ export default function ManualInputPanel({
         </div>
 
         <div>
+          <label className="field-label">Enhancement Direction (Optional)</label>
+          <input
+            type="text"
+            value={enhanceDirection}
+            onChange={e => setEnhanceDirection(e.target.value)}
+            placeholder="e.g. Make it more aggressive, focus on cost savings"
+          />
+        </div>
+
+        <div>
           <label className="field-label">Your Angle or Opinion</label>
           <textarea
             value={angle}
@@ -132,7 +148,30 @@ export default function ManualInputPanel({
             value={imageIdea}
             onChange={e => setImageIdea(e.target.value)}
             placeholder="e.g. Minimalist chart showing 3x adoption curve"
+            style={{ marginBottom: 12 }}
           />
+          <div className="platform-toggle-group">
+            <div className="platform-toggle">
+              <input
+                type="radio"
+                id="img-src-ai"
+                name="imageSource"
+                checked={imageSource === "ai"}
+                onChange={() => setImageSource("ai")}
+              />
+              <label htmlFor="img-src-ai">AI Generated</label>
+            </div>
+            <div className="platform-toggle">
+              <input
+                type="radio"
+                id="img-src-web"
+                name="imageSource"
+                checked={imageSource === "web"}
+                onChange={() => setImageSource("web")}
+              />
+              <label htmlFor="img-src-web">Web Image</label>
+            </div>
+          </div>
         </div>
 
         <div>
@@ -208,6 +247,24 @@ export default function ManualInputPanel({
           </div>
         </div>
 
+        {/* Web Search Toggle */}
+        <div>
+          <label className="field-label">Real-Time Data</label>
+          <div className="platform-toggle-group">
+            <div className="platform-toggle">
+              <input
+                type="checkbox"
+                id="use-web-search"
+                checked={useWebSearch}
+                onChange={(e) => setUseWebSearch(e.target.checked)}
+              />
+              <label htmlFor="use-web-search" style={{ color: useWebSearch ? 'var(--accent)' : 'inherit' }}>
+                Enable Web Search (Fetch recent facts)
+              </label>
+            </div>
+          </div>
+        </div>
+
         {/* Platform toggles */}
         <div>
           <label className="field-label">Publish To</label>
@@ -230,7 +287,7 @@ export default function ManualInputPanel({
         <div style={{ paddingTop: 8, display: 'flex', alignItems: 'center', gap: 20 }}>
           <button
             className="btn btn-primary"
-            onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, platforms: [...activePlatforms] })}
+            onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, useWebSearch, imageSource, platforms: [...activePlatforms] })}
             disabled={isLoading || !topic.trim()}
             style={{ padding: '12px 32px', fontSize: 12 }}
           >
