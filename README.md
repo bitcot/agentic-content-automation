@@ -16,7 +16,7 @@
 *   **🎯 ICP Gatekeeper & Auto-Reshaper:** Every topic is scored against the Bitcot Ideal Customer Profile. High-value tech/developer topics pass seamlessly. Topics scoring low are automatically "reshaped" with enterprise angles to continue generation without failing.
 *   **✍️ Omni-Channel Generation:** Inputs a single topic and simultaneously generates an SEO-optimized Blog Post, a LinkedIn post, an X (Twitter) thread, and corresponding Image Prompts.
 *   **✨ Directed Enhancement Engine:** Users can input a specific "Enhancement Direction" to forcefully rewrite their Topic, Angle, and Image Idea in a highly targeted direction before generation.
-*   **🎨 AI & Web Image Sourcing:** Choose between highly detailed AI-generated graphics (via OpenAI/Pollinations) or instantly fetch real-world photography and event coverage using DuckDuckGo web search integration.
+*   **🎨 AI & Web Image Sourcing:** Choose between highly detailed AI-generated graphics (via OpenAI) or instantly fetch real-world photography and event coverage using DuckDuckGo web search integration.
 *   **🎭 Dynamic Persona Overrides:** While it defaults to CTOs/CEOs, the system accepts custom personas on the fly and dynamically adjusts its entire scoring and writing model to target them.
 *   **🌐 Factual Grounding:** When "Web Search" is enabled, the agent fetches live facts and is aggressively instructed to weave real product names, event details, and metrics into the content.
 *   **🎛️ Human-in-the-Loop Dashboard:** A premium, dark-mode Next.js dashboard to review drafts, monitor token costs, and manage the content lifecycle.
@@ -46,7 +46,7 @@ graph TD
     
     %% External Services
     WriterAgent --> Claude[Anthropic Claude 3]
-    WriterAgent --> Pollinations[Pollinations.ai Image Gen]
+    WriterAgent --> OpenAI[OpenAI DALL-E 3 Image Gen]
     ResearchAgent --> DDG[DuckDuckGo Search API]
     
     %% Data Models inside DB
