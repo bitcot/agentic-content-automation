@@ -37,6 +37,7 @@ graph TD
     Celery --> ICPAgent[ICP Agent]
     Celery --> WriterAgent[Writer Agent]
     Celery --> RegenAgent[Regenerate Agent]
+    WriterAgent --> ResearchAgent[Research Agent]
     
     %% Brain & Memory
     ICPAgent -.-> Supabase[(Supabase PostgreSQL)]
@@ -46,6 +47,7 @@ graph TD
     %% External Services
     WriterAgent --> Claude[Anthropic Claude 3]
     WriterAgent --> Pollinations[Pollinations.ai Image Gen]
+    ResearchAgent --> DDG[DuckDuckGo Search API]
     
     %% Data Models inside DB
     Supabase -.-> BrandContext[brand_context]
@@ -60,7 +62,7 @@ graph TD
     
     class UI ui;
     class API,Celery api;
-    class ICPAgent,WriterAgent,RegenAgent agent;
+    class ICPAgent,WriterAgent,RegenAgent,ResearchAgent agent;
     class Supabase,BrandContext,ContentLogs,PerfMetrics db;
 ```
 
