@@ -12,10 +12,13 @@
 
 ## ✨ Core Features
 
-*   **🧠 Multi-Agent Architecture:** A chained pipeline of specialized AI agents (ICP, SEO, Writer, Repurposing, Regenerate) powered by Anthropic's Claude 3 Opus/Sonnet.
-*   **🎯 ICP Gatekeeper:** Every topic is automatically scored against the Bitcot Ideal Customer Profile. Topics scoring below 65% are outright rejected to save token costs and maintain brand focus.
+*   **🧠 Multi-Agent Architecture:** A chained pipeline of specialized AI agents (ICP, SEO, Writer, Repurposing, Regenerate, Research) powered by Anthropic's Claude 3.
+*   **🎯 ICP Gatekeeper & Auto-Reshaper:** Every topic is scored against the Bitcot Ideal Customer Profile. High-value tech/developer topics pass seamlessly. Topics scoring low are automatically "reshaped" with enterprise angles to continue generation without failing.
 *   **✍️ Omni-Channel Generation:** Inputs a single topic and simultaneously generates an SEO-optimized Blog Post, a LinkedIn post, an X (Twitter) thread, and corresponding Image Prompts.
-*   **🎨 Dynamic Brand Imagery:** Integrated with Pollinations.ai (FLUX models) to autonomously generate header images. Features dynamic logo injection based on author voice (e.g., forcing the exact Bitcot typographic logo in corporate posts).
+*   **✨ Directed Enhancement Engine:** Users can input a specific "Enhancement Direction" to forcefully rewrite their Topic, Angle, and Image Idea in a highly targeted direction before generation.
+*   **🎨 AI & Web Image Sourcing:** Choose between highly detailed AI-generated graphics (via OpenAI/Pollinations) or instantly fetch real-world photography and event coverage using DuckDuckGo web search integration.
+*   **🎭 Dynamic Persona Overrides:** While it defaults to CTOs/CEOs, the system accepts custom personas on the fly and dynamically adjusts its entire scoring and writing model to target them.
+*   **🌐 Factual Grounding:** When "Web Search" is enabled, the agent fetches live facts and is aggressively instructed to weave real product names, event details, and metrics into the content.
 *   **🎛️ Human-in-the-Loop Dashboard:** A premium, dark-mode Next.js dashboard to review drafts, monitor token costs, and manage the content lifecycle.
 *   **🔬 Surgical Regeneration:** Version-controlled editing. Users can select specific blocks (e.g., "LinkedIn Hook") and provide feedback to surgically regenerate *only* that piece without breaking the rest of the post.
 
