@@ -187,9 +187,19 @@ export default function HumanReviewPanel({
 
         {activeTab === 'blog' && (
           <div>
+            {blog.title_tag && (
+              <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginBottom: 8, padding: '8px 12px', background: 'rgba(242,237,228,0.03)', border: 'var(--rule)' }}>
+                <span style={{ color: 'var(--muted)', marginRight: 8 }}>TITLE TAG:</span>{blog.title_tag}
+              </p>
+            )}
             {blog.meta_description && (
+              <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginBottom: 8, padding: '8px 12px', background: 'rgba(242,237,228,0.03)', border: 'var(--rule)' }}>
+                <span style={{ color: 'var(--muted)', marginRight: 8 }}>META DESC:</span>{blog.meta_description}
+              </p>
+            )}
+            {blog.url_slug && (
               <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', marginBottom: 18, padding: '8px 12px', background: 'rgba(242,237,228,0.03)', border: 'var(--rule)' }}>
-                <span style={{ color: 'var(--muted)', marginRight: 8 }}>META:</span>{blog.meta_description}
+                <span style={{ color: 'var(--muted)', marginRight: 8 }}>URL SLUG:</span>/{blog.url_slug}
               </p>
             )}
             
@@ -208,13 +218,15 @@ export default function HumanReviewPanel({
                       Generated Header Image (16:9)
                     </span>
                     {blog.image_prompt && <p style={{ fontSize: 11, color: 'var(--paper)', margin: 0, fontStyle: 'italic', lineHeight: 1.5 }}>{blog.image_prompt}</p>}
+                    {blog.image_alt_text && <p style={{ fontSize: 10, color: 'var(--accent)', marginTop: 8, fontFamily: 'var(--font-mono)' }}>ALT TEXT: {blog.image_alt_text}</p>}
                   </div>
                 </div>
                 <a href={blog.image_url} target="_blank" rel="noopener noreferrer">
-                  <img src={blog.image_url} alt="Generated Header" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                  <img src={blog.image_url} alt={blog.image_alt_text || "Generated Header"} style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
                 </a>
               </div>
             )}
+            {blog.h1_title && <h1 style={{ fontSize: 24, marginBottom: 16, color: 'var(--paper)' }}>{blog.h1_title}</h1>}
             <div className="draft-area" contentEditable suppressContentEditableWarning spellCheck={false} style={{ minHeight: 340 }}>
               {formatText(blog.body || '—')}
             </div>
@@ -224,6 +236,15 @@ export default function HumanReviewPanel({
                 {blog.internal_links.map((link: string, i: number) => (
                   <span key={i} style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--font-mono)', padding: '2px 6px', border: '1px solid rgba(200,255,0,0.2)' }}>{link}</span>
                 ))}
+              </div>
+            )}
+            
+            {blog.json_ld_schema && (
+              <div style={{ marginTop: 20, padding: '12px 16px', background: '#0a0a0a', border: '1px solid #333', borderRadius: 4 }}>
+                <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>JSON-LD Schema (Rich Snippets)</span>
+                <pre style={{ fontSize: 10, color: '#A3B3CC', fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', marginTop: 8, overflowX: 'auto' }}>
+                  {typeof blog.json_ld_schema === 'string' ? blog.json_ld_schema : JSON.stringify(blog.json_ld_schema, null, 2)}
+                </pre>
               </div>
             )}
           </div>

@@ -176,13 +176,17 @@ Any statistic NOT in the approved stats library above MUST be tagged: [NEEDS HUM
 Return ONLY valid JSON with this exact structure:
 {{
   "blog": {{
-    "title": "...",
+    "title_tag": "< 60 chars, optimized for CTR and keywords",
+    "h1_title": "Engaging human-readable title",
+    "url_slug": "keyword-dense-hyphenated-slug",
     "meta_description": "...",
     "body": "...",
     "seo_keywords": ["keyword1", "keyword2", "keyword3"],
     "internal_links": ["service page 1", "service page 2"],
     "word_count": <integer>,
-    "image_prompt": "highly detailed image generation prompt for the blog header (16:9)"
+    "image_prompt": "highly detailed image generation prompt for the blog header (16:9)",
+    "image_alt_text": "Descriptive, keyword-rich alt text for the header image",
+    "json_ld_schema": "Raw JSON string for Article schema markup"
   }},
   "linkedin": {{
     "post": "...",
@@ -284,6 +288,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     blog_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
                                 else:
                                     blog_data["image_url"] = img_data.url
+                                token_usage["estimated_cost_usd"] += 0.040
                             else:
                                 blog_data["image_url"] = ""
                         except Exception as e:
@@ -314,6 +319,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     li_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
                                 else:
                                     li_data["image_url"] = img_data.url
+                                token_usage["estimated_cost_usd"] += 0.040
                             else:
                                 li_data["image_url"] = ""
                         except Exception as e:
@@ -340,7 +346,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                 "topic": topic,
                 "icp_score": icp_result.get("score", 0.0),
                 "persona_match": persona_match,
-                "blog": {"title": topic, "body": text, "meta_description": "", "seo_keywords": [], "internal_links": [], "word_count": 0},
+                "blog": {"h1_title": topic, "title_tag": topic, "url_slug": topic.lower().replace(" ", "-"), "body": text, "meta_description": "", "seo_keywords": [], "internal_links": [], "word_count": 0, "image_alt_text": "", "json_ld_schema": ""},
                 "linkedin": {"post": "", "hook_pattern_used": "", "hashtags": [], "first_comment": "", "estimated_engagement": ""},
                 "x_thread": {"tweets": [], "dm_keyword": ""},
                 "needs_human_check": True,
