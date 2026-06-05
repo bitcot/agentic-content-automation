@@ -12,14 +12,16 @@
 
 ## ✨ Core Features
 
-*   **🧠 Multi-Agent Architecture:** A chained pipeline of specialized AI agents (ICP, SEO, Writer, Repurposing, Regenerate, Research) powered by Anthropic's Claude 3.
+*   **🧠 Multi-Agent Architecture:** A chained pipeline of specialized AI agents (ICP, Trend, Writer, Regenerate, Research) powered by Anthropic's Claude 3.5.
+*   **📡 Trend Detection (Mode A):** An autonomous `TrendAgent` that scrapes HackerNews and DuckDuckGo News in real-time, feeding 50+ raw headlines through the ICP Gatekeeper to pitch the top 3 most valuable B2B topics.
 *   **🎯 ICP Gatekeeper & Auto-Reshaper:** Every topic is scored against the Bitcot Ideal Customer Profile. High-value tech/developer topics pass seamlessly. Topics scoring low are automatically "reshaped" with enterprise angles to continue generation without failing.
 *   **✍️ Omni-Channel Generation:** Inputs a single topic and simultaneously generates an SEO-optimized Blog Post, a LinkedIn post, an X (Twitter) thread, and corresponding Image Prompts.
 *   **✨ Directed Enhancement Engine:** Users can input a specific "Enhancement Direction" to forcefully rewrite their Topic, Angle, and Image Idea in a highly targeted direction before generation.
-*   **🎨 AI & Web Image Sourcing:** Choose between highly detailed AI-generated graphics (via OpenAI) or instantly fetch real-world photography and event coverage using DuckDuckGo web search integration.
+*   **🎨 AI & Web Image Sourcing:** Choose between highly detailed AI-generated graphics (via OpenAI DALL-E 3) or instantly fetch real-world photography and event coverage using DuckDuckGo web search integration.
+*   **🔍 Enterprise-Grade SEO:** Automatically generates heavily constrained Title Tags (< 60 chars), URL slugs, Image Alt Text, and raw JSON-LD Article Schema markup for Google Rich Snippets.
 *   **🎭 Dynamic Persona Overrides:** While it defaults to CTOs/CEOs, the system accepts custom personas on the fly and dynamically adjusts its entire scoring and writing model to target them.
-*   **🌐 Factual Grounding:** When "Web Search" is enabled, the agent fetches live facts and is aggressively instructed to weave real product names, event details, and metrics into the content.
-*   **🎛️ Human-in-the-Loop Dashboard:** A premium, dark-mode Next.js dashboard to review drafts, monitor token costs, and manage the content lifecycle.
+*   **🌐 Factual Grounding:** When "Web Search" is enabled, the `ResearchAgent` fetches live facts and the writer weaves real product names, event details, and metrics into the content.
+*   **🎛️ Human-in-the-Loop Dashboard:** A premium, dark-mode Next.js dashboard to review drafts, discover trends, monitor exact AI token/image generation costs, and manage the content lifecycle.
 *   **🔬 Surgical Regeneration:** Version-controlled editing. Users can select specific blocks (e.g., "LinkedIn Hook") and provide feedback to surgically regenerate *only* that piece without breaking the rest of the post.
 
 ---
@@ -33,6 +35,7 @@ graph TD
     UI --> API[FastAPI Backend]
     
     %% Agents & Logic
+    API --> TrendAgent[Trend Agent]
     API --> Celery[Celery Task Queue]
     Celery --> ICPAgent[ICP Agent]
     Celery --> WriterAgent[Writer Agent]
@@ -45,9 +48,12 @@ graph TD
     RegenAgent -.-> Supabase
     
     %% External Services
-    WriterAgent --> Claude[Anthropic Claude 3]
+    TrendAgent --> HN[HackerNews API]
+    TrendAgent --> DDG[DuckDuckGo News API]
+    TrendAgent --> Claude[Anthropic Claude 3.5]
+    WriterAgent --> Claude
     WriterAgent --> OpenAI[OpenAI DALL-E 3 Image Gen]
-    ResearchAgent --> DDG[DuckDuckGo Search API]
+    ResearchAgent --> DDG
     
     %% Data Models inside DB
     Supabase -.-> BrandContext[brand_context]
@@ -58,11 +64,13 @@ graph TD
     classDef ui fill:#000,stroke:#C8FF00,stroke-width:2px,color:#fff;
     classDef api fill:#070707,stroke:#fff,stroke-width:1px,color:#fff;
     classDef agent fill:#1A1A18,stroke:#C8FF00,stroke-width:1px,color:#C8FF00;
+    classDef external fill:#0b3a3b,stroke:#00f0ff,stroke-width:1px,color:#fff;
     classDef db fill:#3ECF8E,stroke:#fff,stroke-width:1px,color:#000;
     
     class UI ui;
     class API,Celery api;
-    class ICPAgent,WriterAgent,RegenAgent,ResearchAgent agent;
+    class ICPAgent,WriterAgent,RegenAgent,ResearchAgent,TrendAgent agent;
+    class HN,DDG,Claude,OpenAI external;
     class Supabase,BrandContext,ContentLogs,PerfMetrics db;
 ```
 
@@ -129,7 +137,6 @@ Navigate to `http://localhost:3000` to access the Control Center.
 
 ## 🗺️ Roadmap (Upcoming Features)
 
-- [ ] **Mode A (Trend Detection):** A proactive `ResearchAgent` that scrapes HackerNews, X, and TechCrunch to detect viral spikes and automatically pitch highly relevant topics.
 - [ ] **The Learning Loop (Analytics Agent):** Connecting to the LinkedIn and X APIs to pull live engagement data, allowing the AI to retroactively update the `brand_context` database with proven, high-performing hooks.
 - [ ] **Automated Scheduling:** Integration with Buffer/Typefully APIs for direct-to-social publishing.
 
