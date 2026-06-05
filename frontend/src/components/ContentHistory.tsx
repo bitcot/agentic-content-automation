@@ -34,9 +34,10 @@ export default function ContentHistory({ onViewContent }: { onViewContent: (id: 
   const [filter, setFilter] = useState<string>('all');
 
   const fetchHistory = () => {
+    const backendUrl = `http://${window.location.hostname}:8000`;
     const url = filter === 'all'
-      ? 'http://localhost:8000/history?limit=50'
-      : `http://localhost:8000/history?limit=50&status=${filter}`;
+      ? `${backendUrl}/history?limit=50`
+      : `${backendUrl}/history?limit=50&status=${filter}`;
 
     fetch(url)
       .then(r => r.json())

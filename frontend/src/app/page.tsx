@@ -18,7 +18,8 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('http://localhost:8000/generate', {
+      const backendUrl = `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${backendUrl}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -46,7 +47,8 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:8000/history/${id}`);
+      const backendUrl = `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${backendUrl}/history/${id}`);
       const result = await res.json();
       if (!res.ok) throw new Error(result.detail || 'Failed to fetch content');
       setDraftData(result);
@@ -66,7 +68,8 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     try {
-       const res = await fetch('http://localhost:8000/schedule', {
+       const backendUrl = `http://${window.location.hostname}:8000`;
+       const res = await fetch(`${backendUrl}/schedule`, {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
@@ -94,7 +97,8 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     try {
-       const res = await fetch('http://localhost:8000/regenerate', {
+       const backendUrl = `http://${window.location.hostname}:8000`;
+       const res = await fetch(`${backendUrl}/regenerate`, {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
@@ -145,11 +149,10 @@ export default function Home() {
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
               padding: '4px 10px',
-              background: 'rgba(255,255,255,0.03)',
-              color: 'var(--muted)',
-              border: 'var(--rule)',
+              color: 'var(--accent)',
+              border: '1px solid rgba(200,255,0,0.3)',
             }}>
-              ○ Mode A — Not Built Yet
+              ● Mode A — Trend Detection
             </span>
           </div>
 

@@ -40,12 +40,29 @@ export default function ManualInputPanel({
   };
 
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [trends, setTrends] = useState<any[]>([]);
+  const [isDiscovering, setIsDiscovering] = useState(false);
+
+  const handleDiscover = async () => {
+    setIsDiscovering(true);
+    try {
+      const backendUrl = `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${backendUrl}/discover-trends`);
+      const data = await res.json();
+      setTrends(data.trends || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
 
   const handleEnhance = async () => {
     if (!topic.trim()) return;
     setIsEnhancing(true);
     try {
-      const res = await fetch("http://localhost:8000/enhance-topic", {
+      const backendUrl = `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${backendUrl}/enhance-topic`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, angle, target_persona: targetPersona, direction: enhanceDirection, image_idea: imageIdea })
@@ -85,6 +102,47 @@ export default function ManualInputPanel({
           <em style={{ fontStyle: 'italic', color: 'var(--accent)' }}>the world read</em><br />
           today?
         </h2>
+      </div>
+
+      <div style={{ marginBottom: 40, borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 24 }}>
+        <button 
+          onClick={handleDiscover} 
+          disabled={isDiscovering}
+          className="btn" 
+          style={{ width: '100%', background: 'rgba(200,255,0,0.05)', borderColor: 'rgba(200,255,0,0.3)', color: 'var(--accent)' }}
+        >
+          {isDiscovering ? 'Scraping HackerNews & Web...' : '✨ Discover Trending Topics (Mode A)'}
+        </button>
+
+        {trends.length > 0 && (
+          <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>Top Matches for ICP</span>
+            {trends.map((t, idx) => (
+              <div 
+                key={idx} 
+                onClick={() => { setTopic(t.topic); setAngle(t.reasoning); setTrends([]); }}
+                style={{ 
+                  padding: 16, 
+                  background: 'rgba(200,255,0,0.05)', 
+                  border: '1px solid rgba(200,255,0,0.2)', 
+                  cursor: 'pointer',
+                  borderRadius: 4,
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(200,255,0,0.1)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(200,255,0,0.05)'}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, gap: 16 }}>
+                  <strong style={{ color: 'var(--paper)', fontSize: 13, lineHeight: 1.4 }}>{t.topic}</strong>
+                  <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'nowrap' }}>
+                    Score: {t.score}
+                  </span>
+                </div>
+                <p style={{ color: 'var(--muted)', fontSize: 11, margin: 0, lineHeight: 1.5 }}>{t.reasoning}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Form fields */}

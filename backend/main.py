@@ -14,7 +14,11 @@ from agents.repurposing_agent import RepurposingAgent
 from agents.scheduler import Scheduler
 from agents.analytics_agent import AnalyticsAgent
 from agents.trigger_agent import TriggerAgent
+from agents.trend_agent import TrendAgent
 from tasks import celery_app, generate_content_task
+
+import time
+TREND_CACHE = {"data": None, "timestamp": 0}
 
 # Create the database tables
 models.Base.metadata.create_all(bind=engine)
@@ -40,7 +44,7 @@ manager = ConnectionManager()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -69,7 +73,27 @@ class GenerateRequest(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Bitcot Autonomous Content System API"}
+    return {"status": "Bitcot Content OS Active"}
+
+@app.get("/discover-trends")
+def discover_trends():
+    """Fetches trending topics from HN/DDG and scores them, caching for 30 minutes."""
+    global TREND_CACHE
+    now = time.time()
+    
+    # Cache for 30 minutes (1800 seconds)
+    if TREND_CACHE["data"] is not None and (now - TREND_CACHE["timestamp"]) < 1800:
+        return {"trends": TREND_CACHE["data"], "cached": True}
+        
+    try:
+        agent = TrendAgent()
+        trends = agent.discover_trends()
+        if trends:
+            TREND_CACHE["data"] = trends
+            TREND_CACHE["timestamp"] = now
+        return {"trends": trends, "cached": False}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
