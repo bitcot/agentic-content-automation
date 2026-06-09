@@ -122,7 +122,7 @@ celery -A tasks.celery_app worker --loglevel=info
 
 # Terminal 3: FastAPI Backend
 cd backend
-uvicorn main:app --reload --port 8000
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### 3. Frontend Setup

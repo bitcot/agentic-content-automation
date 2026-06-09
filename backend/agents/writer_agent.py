@@ -130,8 +130,11 @@ class WriterAgent:
             search_results = research_agent.search_topic(topic)
             research_context = f"\n\n═══ LATEST RESEARCH CONTEXT ═══\nThe user has requested real-time factual grounding for this topic. Use the following real-time facts to ground your content, add specific details, and avoid writing generic statements:\n{search_results}\n"
 
+        ai_learnings = ctx.get("ai_learnings", "")
+        learnings_block = f"\n\n═══ AI LEARNINGS (LATEST FEEDBACK LOOP) ═══\nThe following rules have been dynamically extracted from recent performance metrics. These supersede any other rules. You MUST apply these learnings:\n{ai_learnings}\n" if ai_learnings else ""
+
         system_prompt = f"""You are ghostwriting content for Raj Sanghvi, Founder of Bitcot Technology.
-{founder_profile}{image_instruction}{research_context}
+{founder_profile}{image_instruction}{research_context}{learnings_block}
 === CONTENT WRITING FOUNDATIONS PLAYBOOK ===
 {playbook_content}
 

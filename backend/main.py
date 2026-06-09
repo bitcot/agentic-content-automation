@@ -45,7 +45,7 @@ manager = ConnectionManager()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -390,7 +390,27 @@ def get_analytics(db: Session = Depends(get_db)):
     """
     analytics_agent = AnalyticsAgent()
     metrics = analytics_agent.get_metrics()
-    return metrics
+    
+    bc = db.query(models.BrandContext).filter_by(key="ai_learnings").first()
+    learnings = bc.value if bc else None
+    
+    return {
+        "linkedin_engagement_rate": metrics.linkedin_engagement_rate,
+        "form_conversion_rate": metrics.form_conversion_rate,
+        "x_bookmark_rate": metrics.x_bookmark_rate,
+        "top_performers": metrics.top_performers,
+        "under_performers": metrics.under_performers,
+        "ai_learnings": learnings
+    }
+
+@app.post("/trigger-learning-loop")
+def trigger_learning_loop():
+    agent = AnalyticsAgent()
+    try:
+        rulebook = agent.run_learning_loop()
+        return {"status": "success", "rulebook": rulebook}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history/{content_id}")
 def get_history_item(content_id: int, db: Session = Depends(get_db)):
@@ -404,6 +424,8 @@ def get_history_item(content_id: int, db: Session = Depends(get_db)):
     import json_repair
     try:
         draft = json_repair.loads(log.content)
+        if not isinstance(draft, dict):
+            draft = {"blog": {"body": str(draft)}}
     except Exception:
         draft = {"blog": {"body": log.content}} # Fallback for old records
         

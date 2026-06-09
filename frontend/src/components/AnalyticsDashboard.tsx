@@ -11,28 +11,67 @@ const BASELINE = {
 export default function AnalyticsDashboard() {
   const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isLearning, setIsLearning] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:8000/analytics')
+    const backendUrl = `http://${window.location.hostname}:8000`;
+    fetch(`${backendUrl}/analytics`)
       .then(r => r.json())
       .then(setMetrics)
       .finally(() => setLoading(false));
   }, []);
+
+  const triggerLearningLoop = async () => {
+    setIsLearning(true);
+    try {
+      const backendUrl = `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${backendUrl}/trigger-learning-loop`, { method: "POST" });
+      const result = await res.json();
+      if (result.status === "success") {
+        setMetrics((prev: any) => ({ ...prev, ai_learnings: result.rulebook }));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLearning(false);
+    }
+  };
 
   const data = metrics || BASELINE;
 
   return (
     <div style={{ animation: 'fadeUp 0.4s ease' }}>
       {/* Section header */}
-      <div style={{ padding: '32px 40px 24px', borderBottom: 'var(--rule)' }}>
-        <p style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
-          Weekly Performance Overview — May 2026
-        </p>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 3vw, 38px)', fontWeight: 700, letterSpacing: '-0.02em' }}>
-          What&apos;s Working.<br />
-          <span style={{ color: 'var(--muted)' }}>What Needs Fixing.</span>
-        </h2>
+      <div style={{ padding: '32px 40px 24px', borderBottom: 'var(--rule)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <p style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
+            Weekly Performance Overview — May 2026
+          </p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 3vw, 38px)', fontWeight: 700, letterSpacing: '-0.02em' }}>
+            What&apos;s Working.<br />
+            <span style={{ color: 'var(--muted)' }}>What Needs Fixing.</span>
+          </h2>
+        </div>
+        <button 
+          onClick={triggerLearningLoop} 
+          disabled={isLearning}
+          className="btn" 
+          style={{ background: 'rgba(200,255,0,0.1)', borderColor: 'rgba(200,255,0,0.5)', color: 'var(--accent)' }}
+        >
+          {isLearning ? '🧠 Analyzing Hooks...' : '🧠 Run AI Learning Loop'}
+        </button>
       </div>
+
+      {data.ai_learnings && (
+        <div style={{ padding: '24px 40px', borderBottom: 'var(--rule)', background: 'rgba(200,255,0,0.02)' }}>
+          <h3 style={{ fontSize: 13, color: 'var(--accent)', marginBottom: 12, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            Latest AI Learnings Rulebook
+          </h3>
+          <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--paper)', background: 'var(--bg-lighter)', padding: 16, borderRadius: 4, lineHeight: 1.6 }}>
+            {data.ai_learnings}
+          </pre>
+        </div>
+      )}
 
       {/* Metric cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBottom: 'var(--rule)' }}>
