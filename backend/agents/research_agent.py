@@ -1,8 +1,11 @@
 from ddgs import DDGS
+from openai import OpenAI
+import os
 
 class ResearchAgent:
     def __init__(self):
         self.ddgs = DDGS()
+        self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def search_topic(self, query: str, max_results: int = 5) -> str:
         """
@@ -28,13 +31,50 @@ class ResearchAgent:
 
     def search_image(self, query: str) -> str:
         """
-        Searches for a web image and returns the best matching URL.
+        Searches for web images and uses a Vision model to verify suitability.
+        Rejects generic abstract vectors or low quality stock photos.
         """
         try:
-            results = list(self.ddgs.images(query, max_results=1))
-            if results and len(results) > 0:
-                return results[0].get('image', '')
-            return ""
+            results = list(self.ddgs.images(query, max_results=8))
+            if not results:
+                return ""
+            
+            for res in results:
+                img_url = res.get('image', '')
+                if not img_url:
+                    continue
+                
+                try:
+                    verification = self.openai_client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "text", 
+                                        "text": f"You are a strict editorial image reviewer. The topic/context is '{query}'. Evaluate this image. Reject it if it is a generic abstract vector (like floating dots/nodes), irrelevant, or low quality. Reply with exactly YES if it's highly suitable and specific, or NO if it should be rejected."
+                                    },
+                                    {
+                                        "type": "image_url", 
+                                        "image_url": {"url": img_url}
+                                    }
+                                ]
+                            }
+                        ],
+                        max_tokens=5
+                    )
+                    verdict = verification.choices[0].message.content.strip().upper()
+                    if "YES" in verdict:
+                        return img_url
+                    else:
+                        print(f"Vision rejected image: {img_url}")
+                except Exception as e:
+                    print(f"Vision eval failed for {img_url}: {e}")
+                    continue
+            
+            # Fallback if all rejected
+            return results[0].get('image', '')
         except Exception as e:
             print(f"Image search failed: {e}")
             return ""

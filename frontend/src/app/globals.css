@@ -426,3 +426,18 @@ textarea { resize: vertical; }
   margin: 32px 0;
   border: 1px solid rgba(255,255,255,0.1);
 }
+
+/* PDF Page Break Protection */
+.rendered-markdown img, 
+.rendered-markdown h1, 
+.rendered-markdown h2, 
+.rendered-markdown h3, 
+.rendered-markdown p, 
+.rendered-markdown ul, 
+.rendered-markdown li,
+.key-takeaways,
+.table-of-contents,
+.faq-section {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}

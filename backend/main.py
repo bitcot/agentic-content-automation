@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import Response
+import requests
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import models
@@ -74,6 +76,18 @@ class GenerateRequest(BaseModel):
 @app.get("/")
 def read_root():
     return {"status": "Bitcot Content OS Active"}
+
+@app.get("/proxy-image")
+def proxy_image(url: str):
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        }
+        r = requests.get(url, headers=headers, timeout=10)
+        return Response(content=r.content, media_type=r.headers.get("Content-Type", "image/jpeg"))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Failed to fetch image")
 
 @app.get("/discover-trends")
 def discover_trends():

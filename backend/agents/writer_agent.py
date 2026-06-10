@@ -172,18 +172,37 @@ You will produce THREE pieces of content for the same topic: a Blog Post, a Link
 {seo_rule}
 Service pages to link to: {buried_pages}
 
-═══ HALLUCINATION RULE ═══
-Any statistic NOT in the approved stats library above MUST be tagged: [NEEDS HUMAN CHECK: describe what to verify]
+═══ HALLUCINATION & STATS RULE ═══
+If you use statistics, you MUST either use highly relevant ones from the APPROVED STATS LIBRARY, or if none are relevant, you can use external stats but they MUST be tagged: [NEEDS HUMAN CHECK: describe what to verify]. DO NOT force irrelevant stats (e.g. healthcare stats in a consumer tech post) just because they are in the library.
 
 ═══ BLOG BODY STRUCTURE (CRITICAL) ═══
 You MUST format the "body" field of the blog exactly as follows:
-1. **<div class="key-takeaways">Key Takeaways</div>**: A bulleted list of 3-5 core insights right at the top.
-2. **<div class="table-of-contents">Table of Contents</div>**: An index of all H2 headers.
+1. **Key Takeaways**: Wrapped exactly like this:
+<div class="key-takeaways">
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li>Insight 1</li>
+    <li>Insight 2</li>
+  </ul>
+</div>
+2. **Table of Contents**: Wrapped exactly like this:
+<div class="table-of-contents">
+  <h2>Table of Contents</h2>
+  <ul>
+    <li>Header 1</li>
+    <li>Header 2</li>
+  </ul>
+</div>
 3. **Main Content**: 
    - Naturally **bold** important SEO keywords throughout the text.
    - Interleave exactly 2 to 3 image placeholders between major paragraphs using this exact format: `[IMAGE: highly detailed prompt for an architectural diagram, cloud architecture data pipeline, or technical flowchart. Avoid generic AI people/robots. Focus on abstract diagrams and workflows.]`
 4. **Conclusion**: A definitive wrap-up wrapping the argument together.
-5. **<div class="faq-section">Frequently Asked Questions</div>**: 3-5 relevant FAQs structured with H3 headers.
+5. **FAQs**: Wrapped exactly like this at the very end:
+<div class="faq-section">
+  <h2>Frequently Asked Questions</h2>
+  <h3>Question 1</h3>
+  <p>Answer 1</p>
+</div>
 
 ═══ OUTPUT FORMAT ═══
 Return ONLY valid JSON with this exact structure:
@@ -298,7 +317,8 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     model="gpt-image-1-mini",
                                     prompt=prompt_text,
                                     n=1,
-                                    size="1024x1024"
+                                    size="1024x1024",
+                                    response_format="b64_json"
                                 )
                                 img_data_res = img_res.data[0]
                                 if hasattr(img_data_res, "b64_json") and img_data_res.b64_json:
@@ -333,7 +353,8 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     model="gpt-image-1-mini",
                                     prompt=blog_data["image_prompt"],
                                     n=1,
-                                    size="1024x1024"
+                                    size="1024x1024",
+                                    response_format="b64_json"
                                 )
                                 img_data = img_res.data[0]
                                 if hasattr(img_data, "b64_json") and img_data.b64_json:
@@ -364,7 +385,8 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     model="gpt-image-1-mini",
                                     prompt=li_data["image_prompt"],
                                     n=1,
-                                    size="1024x1024"
+                                    size="1024x1024",
+                                    response_format="b64_json"
                                 )
                                 img_data = img_res.data[0]
                                 if hasattr(img_data, "b64_json") and img_data.b64_json:

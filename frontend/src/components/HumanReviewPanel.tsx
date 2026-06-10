@@ -185,6 +185,66 @@ export default function HumanReviewPanel({
             {t.label}
           </button>
         ))}
+        {activeTab === 'blog' && (
+          <button 
+            className="btn btn-primary"
+            onClick={async () => {
+              const element = document.getElementById('blog-pdf-content');
+              if (!element) return;
+              
+              const images = element.querySelectorAll('img');
+              const originalSrcs = new Map();
+              const loadPromises: Promise<void>[] = [];
+              
+              images.forEach(img => {
+                if (img.src && !img.src.startsWith('data:') && !img.src.includes('proxy-image')) {
+                  originalSrcs.set(img, img.src);
+                  const p = new Promise<void>(resolve => {
+                    img.onload = () => resolve();
+                    img.onerror = () => resolve();
+                  });
+                  loadPromises.push(p);
+                  img.src = `http://localhost:8000/proxy-image?url=${encodeURIComponent(img.src)}`;
+                }
+              });
+
+              if (loadPromises.length > 0) {
+                await Promise.all(loadPromises);
+              }
+
+              const html2pdf = (await import('html2pdf.js')).default;
+              html2pdf().set({
+                margin: 0.4,
+                filename: `${blog?.url_slug || 'blog'}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#0a0a0a' },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+              }).from(element).save().then(() => {
+                images.forEach(img => {
+                  if (originalSrcs.has(img)) img.src = originalSrcs.get(img);
+                });
+              });
+            }}
+            style={{ 
+              marginLeft: 16, 
+              fontSize: 11, 
+              padding: '6px 14px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 6,
+              boxShadow: '0 0 12px rgba(200,255,0,0.2)',
+              border: '1px solid rgba(200,255,0,0.5)'
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Export PDF
+          </button>
+        )}
         {linkedin.hook_pattern_used && (
           <span style={{ marginLeft: 'auto', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)', paddingRight: 4 }}>
             Hook: Pattern {linkedin.hook_pattern_used}
@@ -231,17 +291,22 @@ export default function HumanReviewPanel({
                     {blog.image_alt_text && <p style={{ fontSize: 10, color: 'var(--accent)', marginTop: 8, fontFamily: 'var(--font-mono)' }}>ALT TEXT: {blog.image_alt_text}</p>}
                   </div>
                 </div>
-                <a href={blog.image_url} target="_blank" rel="noopener noreferrer">
-                  <img src={blog.image_url} alt={blog.image_alt_text || "Generated Header"} style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
-                </a>
               </div>
             )}
-            {blog.h1_title && <h1 style={{ fontSize: 24, marginBottom: 16, color: 'var(--paper)' }}>{blog.h1_title}</h1>}
-            <div 
-              className="draft-area rendered-markdown" 
-              dangerouslySetInnerHTML={renderMarkdown(blog.body || '—')} 
-              style={{ minHeight: 340, padding: 24 }} 
-            />
+            
+            <div id="blog-pdf-content" style={{ padding: '24px', background: '#0a0a0a', color: '#e6e6e6', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+              {blog.image_url && (
+                <a href={blog.image_url} target="_blank" rel="noopener noreferrer">
+                  <img src={blog.image_url} alt={blog.image_alt_text || "Generated Header"} crossOrigin="anonymous" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: 24 }} />
+                </a>
+              )}
+              {blog.h1_title && <h1 style={{ fontSize: 28, marginBottom: 24, color: '#fff', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 16 }}>{blog.h1_title}</h1>}
+              <div 
+                className="draft-area rendered-markdown" 
+                dangerouslySetInnerHTML={renderMarkdown(blog.body || '—')} 
+                style={{ minHeight: 340 }} 
+              />
+            </div>
             {blog.internal_links?.length > 0 && (
               <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)' }}>SEO Internal Links:</span>
