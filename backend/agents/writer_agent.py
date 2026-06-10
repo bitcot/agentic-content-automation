@@ -175,6 +175,16 @@ Service pages to link to: {buried_pages}
 ═══ HALLUCINATION RULE ═══
 Any statistic NOT in the approved stats library above MUST be tagged: [NEEDS HUMAN CHECK: describe what to verify]
 
+═══ BLOG BODY STRUCTURE (CRITICAL) ═══
+You MUST format the "body" field of the blog exactly as follows:
+1. **<div class="key-takeaways">Key Takeaways</div>**: A bulleted list of 3-5 core insights right at the top.
+2. **<div class="table-of-contents">Table of Contents</div>**: An index of all H2 headers.
+3. **Main Content**: 
+   - Naturally **bold** important SEO keywords throughout the text.
+   - Interleave exactly 2 to 3 image placeholders between major paragraphs using this exact format: `[IMAGE: highly detailed prompt for an architectural diagram, cloud architecture data pipeline, or technical flowchart. Avoid generic AI people/robots. Focus on abstract diagrams and workflows.]`
+4. **Conclusion**: A definitive wrap-up wrapping the argument together.
+5. **<div class="faq-section">Frequently Asked Questions</div>**: 3-5 relevant FAQs structured with H3 headers.
+
 ═══ OUTPUT FORMAT ═══
 Return ONLY valid JSON with this exact structure:
 {{
@@ -268,6 +278,45 @@ Generate the full Blog + LinkedIn + X Thread now."""
                 check_flags = result.get("check_flags", [])
 
                 blog_data = result.get("blog", {})
+                blog_body_raw = blog_data.get("body", "")
+                
+                # Process Inline Images
+                def replace_inline_image(match):
+                    prompt_text = match.group(1).strip()
+                    img_url = ""
+                    if image_source == "web":
+                        try:
+                            from agents.research_agent import ResearchAgent
+                            research_agent = ResearchAgent()
+                            img_url = research_agent.search_image(prompt_text)
+                        except Exception as e:
+                            print(f"Web Inline Image search failed: {e}")
+                    else:
+                        try:
+                            if openai_client:
+                                img_res = openai_client.images.generate(
+                                    model="gpt-image-1-mini",
+                                    prompt=prompt_text,
+                                    n=1,
+                                    size="1024x1024"
+                                )
+                                img_data_res = img_res.data[0]
+                                if hasattr(img_data_res, "b64_json") and img_data_res.b64_json:
+                                    img_url = f"data:image/png;base64,{img_data_res.b64_json}"
+                                else:
+                                    img_url = img_data_res.url
+                                token_usage["estimated_cost_usd"] += 0.040
+                        except Exception as e:
+                            print(f"OpenAI Inline Image Gen failed: {e}")
+                    
+                    if img_url:
+                        return f"![Architectural Diagram]({img_url})"
+                    else:
+                        return f"*(Image placeholder: {prompt_text})*"
+
+                if blog_body_raw:
+                    blog_data["body"] = re.sub(r'\[IMAGE:\s*(.*?)\]', replace_inline_image, blog_body_raw)
+
                 if "image_prompt" in blog_data and blog_data["image_prompt"]:
                     if image_source == "web":
                         try:

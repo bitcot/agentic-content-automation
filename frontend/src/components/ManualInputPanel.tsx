@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
 
 const tones = [
   { value: "thought_leader", label: "Thought Leader" },
@@ -42,6 +43,49 @@ export default function ManualInputPanel({
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [trends, setTrends] = useState<any[]>([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
+
+  const { isListening, activeField, startListening, hasSupport } = useVoiceRecognition();
+
+  const handleVoiceInput = (fieldId: string, setter: (val: string | ((prev: string) => string)) => void) => {
+    startListening(fieldId, (text) => {
+      setter((prev: string) => prev ? prev + " " + text : text);
+    });
+  };
+
+  const renderMicBtn = (fieldId: string, setter: any, isTextArea: boolean = false) => {
+    if (!hasSupport) return null;
+    const active = isListening && activeField === fieldId;
+    return (
+      <button 
+        type="button"
+        onClick={() => handleVoiceInput(fieldId, setter)}
+        style={{
+          position: 'absolute',
+          right: 12,
+          top: isTextArea ? 12 : '50%',
+          transform: isTextArea ? 'none' : 'translateY(-50%)',
+          background: 'transparent',
+          border: 'none',
+          color: active ? 'var(--accent)' : 'var(--muted)',
+          cursor: 'pointer',
+          padding: 4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: active ? 1 : 0.5,
+          transition: 'all 0.2s',
+          animation: active ? 'pulse 1.5s infinite' : 'none'
+        }}
+        title="Dictate with microphone"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="22"></line>
+        </svg>
+      </button>
+    );
+  };
 
   const handleDiscover = async () => {
     setIsDiscovering(true);
@@ -150,7 +194,9 @@ export default function ManualInputPanel({
 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 }}>
-            <label className="field-label" style={{ marginBottom: 0 }}>Topic / Keyword</label>
+            <label className="field-label" style={{ marginBottom: 0 }}>
+              Topic / Keyword
+            </label>
             <button 
               onClick={handleEnhance} 
               disabled={isEnhancing || !topic.trim()}
@@ -171,43 +217,64 @@ export default function ManualInputPanel({
               {isEnhancing ? 'Enhancing...' : 'Enhance ✨'}
             </button>
           </div>
-          <input
-            type="text"
-            value={topic}
-            onChange={e => setTopic(e.target.value)}
-            placeholder="Enterprise AI Adoption"
-          />
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              value={topic}
+              onChange={e => setTopic(e.target.value)}
+              placeholder="Enterprise AI Adoption"
+              style={{ paddingRight: 40 }}
+            />
+            {renderMicBtn('topic', setTopic)}
+          </div>
         </div>
 
         <div>
-          <label className="field-label">Enhancement Direction (Optional)</label>
-          <input
-            type="text"
-            value={enhanceDirection}
-            onChange={e => setEnhanceDirection(e.target.value)}
-            placeholder="e.g. Make it more aggressive, focus on cost savings"
-          />
+          <label className="field-label">
+            Enhancement Direction (Optional)
+          </label>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              value={enhanceDirection}
+              onChange={e => setEnhanceDirection(e.target.value)}
+              placeholder="e.g. Make it more aggressive, focus on cost savings"
+              style={{ paddingRight: 40 }}
+            />
+            {renderMicBtn('enhanceDirection', setEnhanceDirection)}
+          </div>
         </div>
 
         <div>
-          <label className="field-label">Your Angle or Opinion</label>
-          <textarea
-            value={angle}
-            onChange={e => setAngle(e.target.value)}
-            placeholder="What's your contrarian take? What do you know that others don't?"
-            rows={4}
-          />
+          <label className="field-label">
+            Your Angle or Opinion
+          </label>
+          <div style={{ position: 'relative' }}>
+            <textarea
+              value={angle}
+              onChange={e => setAngle(e.target.value)}
+              placeholder="What's your contrarian take? What do you know that others don't?"
+              rows={4}
+              style={{ paddingRight: 40 }}
+            />
+            {renderMicBtn('angle', setAngle, true)}
+          </div>
         </div>
 
         <div>
-          <label className="field-label">Image Idea</label>
-          <input
-            type="text"
-            value={imageIdea}
-            onChange={e => setImageIdea(e.target.value)}
-            placeholder="e.g. Minimalist chart showing 3x adoption curve"
-            style={{ marginBottom: 12 }}
-          />
+          <label className="field-label">
+            Image Idea
+          </label>
+          <div style={{ position: 'relative', marginBottom: 12 }}>
+            <input
+              type="text"
+              value={imageIdea}
+              onChange={e => setImageIdea(e.target.value)}
+              placeholder="e.g. Minimalist chart showing 3x adoption curve"
+              style={{ paddingRight: 40, marginBottom: 0 }}
+            />
+            {renderMicBtn('imageIdea', setImageIdea)}
+          </div>
           <div className="platform-toggle-group">
             <div className="platform-toggle">
               <input
@@ -233,14 +300,20 @@ export default function ManualInputPanel({
         </div>
 
         <div>
-          <label className="field-label">Target Persona (Who is this for?)</label>
-          <input
-            type="text"
-            value={targetPersona}
-            onChange={e => setTargetPersona(e.target.value)}
-            placeholder="e.g. CTOs concerned about cloud costs, or CEOs looking for ROI"
-            list="persona-suggestions"
-          />
+          <label className="field-label">
+            Target Persona (Who is this for?)
+          </label>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              value={targetPersona}
+              onChange={e => setTargetPersona(e.target.value)}
+              placeholder="e.g. CTOs concerned about cloud costs, or CEOs looking for ROI"
+              list="persona-suggestions"
+              style={{ paddingRight: 40 }}
+            />
+            {renderMicBtn('targetPersona', setTargetPersona)}
+          </div>
           <datalist id="persona-suggestions">
             <option value="CTO / VP Engineering (Technical & Architecture focus)" />
             <option value="CEO / Founder (Business outcomes, ROI & Strategy)" />
