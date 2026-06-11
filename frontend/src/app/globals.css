@@ -384,22 +384,31 @@ textarea { resize: vertical; }
   margin-bottom: 24px;
 }
 .faq-section h3 {
-  background: #0000cc; /* deep blue */
-  color: white;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--paper);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   padding: 16px 20px;
   margin-top: 16px;
   margin-bottom: 4px;
-  border-radius: 2px;
+  border-radius: 8px;
   font-size: 16px;
   font-weight: 500;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: all 0.2s ease;
+}
+.faq-section h3:hover {
+  background: rgba(200, 255, 0, 0.05);
+  border-color: rgba(200, 255, 0, 0.2);
+  color: #c8ff00;
+  cursor: pointer;
 }
 .faq-section h3::after {
   content: "+";
   font-size: 20px;
   font-weight: 700;
+  color: #c8ff00;
 }
 
 /* Markdown Typography & Highlights */

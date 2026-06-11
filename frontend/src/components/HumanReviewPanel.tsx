@@ -212,6 +212,16 @@ export default function HumanReviewPanel({
                 await Promise.all(loadPromises);
               }
 
+              // Inject global print styles to prevent page breaks inside elements
+              const style = document.createElement('style');
+              style.innerHTML = `
+                #blog-pdf-content img, #blog-pdf-content p, #blog-pdf-content h1, #blog-pdf-content h2, #blog-pdf-content h3, #blog-pdf-content li, #blog-pdf-content .key-takeaways {
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                }
+              `;
+              document.head.appendChild(style);
+
               const html2pdf = (await import('html2pdf.js')).default;
               html2pdf().set({
                 margin: 0.4,
@@ -219,8 +229,9 @@ export default function HumanReviewPanel({
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true, backgroundColor: '#0a0a0a' },
                 jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+                pagebreak: { mode: ['css', 'legacy'], avoid: ['img', 'h1', 'h2', 'h3', 'p', 'li', '.key-takeaways'] }
               }).from(element).save().then(() => {
+                document.head.removeChild(style);
                 images.forEach(img => {
                   if (originalSrcs.has(img)) img.src = originalSrcs.get(img);
                 });

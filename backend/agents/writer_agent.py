@@ -173,10 +173,13 @@ You will produce THREE pieces of content for the same topic: a Blog Post, a Link
 Service pages to link to: {buried_pages}
 
 ═══ HALLUCINATION & STATS RULE ═══
-If you use statistics, you MUST either use highly relevant ones from the APPROVED STATS LIBRARY, or if none are relevant, you can use external stats but they MUST be tagged: [NEEDS HUMAN CHECK: describe what to verify]. DO NOT force irrelevant stats (e.g. healthcare stats in a consumer tech post) just because they are in the library.
+If you use statistics, you MUST either use highly relevant ones from the APPROVED STATS LIBRARY, or if none are relevant, you can use external stats but they MUST be tagged: [NEEDS HUMAN CHECK: describe what to verify]. DO NOT force irrelevant stats (e.g. healthcare stats in a consumer tech post). If no stat perfectly aligns, OMIT IT ENTIRELY.
+
+═══ TRUST SIGNALS & CREDIBILITY (CRITICAL) ═══
+You MUST include a strong section establishing credibility. Use exact statements like: "Our team has delivered 100+ mobile applications and worked with enterprise iOS architectures across healthcare, fintech, and SaaS platforms." Do not make claims about the future without grounding them in our past implementation experience.
 
 ═══ BLOG BODY STRUCTURE (CRITICAL) ═══
-You MUST format the "body" field of the blog exactly as follows:
+You MUST format the "body" field of the blog exactly as follows to match our proven structure:
 1. **Key Takeaways**: Wrapped exactly like this:
 <div class="key-takeaways">
   <h2>Key Takeaways</h2>
@@ -185,24 +188,22 @@ You MUST format the "body" field of the blog exactly as follows:
     <li>Insight 2</li>
   </ul>
 </div>
-2. **Table of Contents**: Wrapped exactly like this:
-<div class="table-of-contents">
-  <h2>Table of Contents</h2>
-  <ul>
-    <li>Header 1</li>
-    <li>Header 2</li>
-  </ul>
-</div>
-3. **Main Content**: 
-   - Naturally **bold** important SEO keywords throughout the text.
-   - Interleave exactly 2 to 3 image placeholders between major paragraphs using this exact format: `[IMAGE: highly detailed prompt for an architectural diagram, cloud architecture data pipeline, or technical flowchart. Avoid generic AI people/robots. Focus on abstract diagrams and workflows.]`
-4. **Conclusion**: A definitive wrap-up wrapping the argument together.
-5. **FAQs**: Wrapped exactly like this at the very end:
+2. **Introduction**: Create an urgent hook. Do NOT use generic openings.
+3. **Industry Problem**: Describe the friction and broken processes in the industry today.
+4. **Strategic Insight / POV**: Our contrarian angle and unique perspective.
+5. **What We Built & Tech Stack**: Dive deep into technical architecture.
+6. **Challenges and Solutions**: Real-world implementation details.
+7. **Business Impact & ROI**: Why executives should care.
+8. **Why Bitcot (CTA)**: Establish trust (100+ mobile apps delivered) with a strong conversional CTA.
+9. **Conclusion**: A definitive wrap-up wrapping the argument together.
+10. **FAQs**: Wrapped exactly like this at the very end:
 <div class="faq-section">
   <h2>Frequently Asked Questions</h2>
   <h3>Question 1</h3>
   <p>Answer 1</p>
 </div>
+
+Interleave exactly 2 to 3 image placeholders between major paragraphs using this exact format: `[IMAGE: highly detailed prompt for an architectural diagram, cloud architecture data pipeline, or technical flowchart. Avoid generic AI people/robots. Focus on abstract diagrams and workflows.]`
 
 ═══ OUTPUT FORMAT ═══
 Return ONLY valid JSON with this exact structure:
@@ -342,10 +343,52 @@ Generate the full Blog + LinkedIn + X Thread now."""
                         try:
                             from agents.research_agent import ResearchAgent
                             research_agent = ResearchAgent()
-                            blog_data["image_url"] = research_agent.search_image(topic + " " + image_idea)
+                            fetched_url = research_agent.search_image(topic + " " + image_idea)
+                            
+                            is_valid = False
+                            if openai_client and fetched_url:
+                                try:
+                                    img_check = openai_client.chat.completions.create(
+                                        model="gpt-4o-mini",
+                                        messages=[
+                                            {"role": "user", "content": [
+                                                {"type": "text", "text": f"Is this image highly suitable, professional, and relevant for a technical blog post about: {topic}? Reply 'YES' or 'NO'."},
+                                                {"type": "image_url", "image_url": {"url": fetched_url}}
+                                            ]}
+                                        ],
+                                        max_tokens=10
+                                    )
+                                    if "YES" in img_check.choices[0].message.content.upper():
+                                        is_valid = True
+                                except Exception as ve:
+                                    print(f"Image verification failed: {ve}")
+                            
+                            if is_valid:
+                                blog_data["image_url"] = fetched_url
+                            else:
+                                print("Web image rejected by AI. Falling back to generation.")
+                                raise Exception("Web image rejected.")
                         except Exception as e:
                             blog_data["image_url"] = ""
                             print(f"Web Image search failed: {e}")
+                            # Fallback to Generation
+                            try:
+                                if openai_client:
+                                    img_res = openai_client.images.generate(
+                                        model="gpt-image-1-mini",
+                                        prompt=blog_data["image_prompt"],
+                                        n=1,
+                                        size="1024x1024",
+                                        response_format="b64_json"
+                                    )
+                                    img_data = img_res.data[0]
+                                    if hasattr(img_data, "b64_json") and img_data.b64_json:
+                                        blog_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
+                                    else:
+                                        blog_data["image_url"] = img_data.url
+                                    token_usage["estimated_cost_usd"] += 0.040
+                            except Exception as fall_e:
+                                print(f"OpenAI fallback Gen failed: {fall_e}")
                     else:
                         try:
                             if openai_client:
