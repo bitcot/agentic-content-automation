@@ -1,8 +1,8 @@
 import os
 import json
 import re
-import urllib.parse
-import anthropic
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import SystemMessage, HumanMessage
 import json_repair
 from openai import OpenAI
 from sqlalchemy.orm import Session
@@ -10,7 +10,7 @@ from models import ContentLog
 
 class RegenerateAgent:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=120.0)
+        self.model_name = "claude-opus-4-7"
 
     def regenerate_content(self, db: Session, content_id: int, target_part: str, feedback: str) -> dict:
         log = db.query(ContentLog).filter(ContentLog.id == content_id).first()
@@ -23,7 +23,6 @@ class RegenerateAgent:
             raise ValueError("Failed to parse existing content")
 
         # Prepare context based on target
-        # For blog, linkedin, x_thread, blog_image, linkedin_image
         part_content = ""
         if target_part == "blog":
             part_content = json.dumps(draft.get("blog", {}))
@@ -62,84 +61,88 @@ When writing an image_prompt, ALWAYS write comma-separated keywords (no full sen
 
         user_msg = "Please provide the updated JSON for the targeted part."
 
-        response = self.client.messages.create(
-            model="claude-opus-4-7",
-            max_tokens=4096,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_msg}]
-        )
+        try:
+            chat = ChatAnthropic(
+                model=self.model_name,
+                anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+                timeout=120.0,
+                max_tokens=4096
+            )
+            response = chat.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_msg)
+            ])
+            text = response.content.strip()
 
-        text = response.content[0].text.strip()
-        m = re.search(r'\{.*\}', text, re.DOTALL)
-        if m:
-            updated_part = json_repair.loads(m.group())
-        else:
-            raise ValueError("Could not parse JSON from Claude's response")
+            m = re.search(r'\{.*\}', text, re.DOTALL)
+            if m:
+                updated_part = json_repair.loads(m.group())
+            else:
+                raise ValueError("Could not parse JSON from Claude's response")
 
-        # Merge updated part back into draft
-        from openai import OpenAI
-        
-        openai_key = os.getenv("OPENAI_API_KEY", "")
-        openai_client = None
-        if openai_key.strip():
-            try:
-                openai_client = OpenAI(api_key=openai_key)
-            except Exception:
-                pass
+            openai_key = os.getenv("OPENAI_API_KEY", "")
+            openai_client = None
+            if openai_key.strip():
+                try:
+                    openai_client = OpenAI(api_key=openai_key)
+                except Exception:
+                    pass
 
-        if target_part == "blog":
-            draft["blog"] = updated_part
-            if "image_prompt" in updated_part and updated_part["image_prompt"]:
-                try:
-                    if openai_client:
-                        img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=updated_part["image_prompt"], n=1, size="1024x1024")
-                        img_data = img_res.data[0]
-                        draft["blog"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
-                    else:
-                        draft["blog"]["image_url"] = ""
-                except Exception as e:
-                    print(f"OpenAI gen failed: {e}")
-        elif target_part == "linkedin":
-            draft["linkedin"] = updated_part
-            if "image_prompt" in updated_part and updated_part["image_prompt"]:
-                try:
-                    if openai_client:
-                        img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=updated_part["image_prompt"], n=1, size="1024x1024")
-                        img_data = img_res.data[0]
-                        draft["linkedin"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
-                    else:
-                        draft["linkedin"]["image_url"] = ""
-                except Exception as e:
-                    print(f"OpenAI gen failed: {e}")
-        elif target_part == "x_thread":
-            draft["x_thread"] = updated_part
-        elif target_part == "blog_image":
-            draft["blog"]["image_prompt"] = updated_part.get("image_prompt", "")
-            if draft["blog"]["image_prompt"]:
-                try:
-                    if openai_client:
-                        img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=draft["blog"]["image_prompt"], n=1, size="1024x1024")
-                        img_data = img_res.data[0]
-                        draft["blog"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
-                    else:
-                        draft["blog"]["image_url"] = ""
-                except Exception as e:
-                    print(f"OpenAI gen failed: {e}")
-        elif target_part == "linkedin_image":
-            draft["linkedin"]["image_prompt"] = updated_part.get("image_prompt", "")
-            if draft["linkedin"]["image_prompt"]:
-                try:
-                    if openai_client:
-                        img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=draft["linkedin"]["image_prompt"], n=1, size="1024x1024")
-                        img_data = img_res.data[0]
-                        draft["linkedin"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
-                    else:
-                        draft["linkedin"]["image_url"] = ""
-                except Exception as e:
-                    print(f"OpenAI gen failed: {e}")
-        elif target_part == "all":
-            draft["blog"] = updated_part.get("blog", draft.get("blog"))
-            draft["linkedin"] = updated_part.get("linkedin", draft.get("linkedin"))
-            draft["x_thread"] = updated_part.get("x_thread", draft.get("x_thread"))
+            if target_part == "blog":
+                draft["blog"] = updated_part
+                if "image_prompt" in updated_part and updated_part["image_prompt"]:
+                    try:
+                        if openai_client:
+                            img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=updated_part["image_prompt"], n=1, size="1024x1024")
+                            img_data = img_res.data[0]
+                            draft["blog"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
+                        else:
+                            draft["blog"]["image_url"] = ""
+                    except Exception as e:
+                        print(f"OpenAI gen failed: {e}")
+            elif target_part == "linkedin":
+                draft["linkedin"] = updated_part
+                if "image_prompt" in updated_part and updated_part["image_prompt"]:
+                    try:
+                        if openai_client:
+                            img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=updated_part["image_prompt"], n=1, size="1024x1024")
+                            img_data = img_res.data[0]
+                            draft["linkedin"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
+                        else:
+                            draft["linkedin"]["image_url"] = ""
+                    except Exception as e:
+                        print(f"OpenAI gen failed: {e}")
+            elif target_part == "x_thread":
+                draft["x_thread"] = updated_part
+            elif target_part == "blog_image":
+                draft["blog"]["image_prompt"] = updated_part.get("image_prompt", "")
+                if draft["blog"]["image_prompt"]:
+                    try:
+                        if openai_client:
+                            img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=draft["blog"]["image_prompt"], n=1, size="1024x1024")
+                            img_data = img_res.data[0]
+                            draft["blog"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
+                        else:
+                            draft["blog"]["image_url"] = ""
+                    except Exception as e:
+                        print(f"OpenAI gen failed: {e}")
+            elif target_part == "linkedin_image":
+                draft["linkedin"]["image_prompt"] = updated_part.get("image_prompt", "")
+                if draft["linkedin"]["image_prompt"]:
+                    try:
+                        if openai_client:
+                            img_res = openai_client.images.generate(model="gpt-image-1-mini", prompt=draft["linkedin"]["image_prompt"], n=1, size="1024x1024")
+                            img_data = img_res.data[0]
+                            draft["linkedin"]["image_url"] = f"data:image/png;base64,{img_data.b64_json}" if getattr(img_data, "b64_json", None) else img_data.url
+                        else:
+                            draft["linkedin"]["image_url"] = ""
+                    except Exception as e:
+                        print(f"OpenAI gen failed: {e}")
+            elif target_part == "all":
+                draft["blog"] = updated_part.get("blog", draft.get("blog"))
+                draft["linkedin"] = updated_part.get("linkedin", draft.get("linkedin"))
+                draft["x_thread"] = updated_part.get("x_thread", draft.get("x_thread"))
 
-        return draft
+            return draft
+        except Exception as e:
+            raise RuntimeError(f"RegenerateAgent error: {str(e)}")

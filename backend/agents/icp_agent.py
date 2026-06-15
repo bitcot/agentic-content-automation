@@ -1,5 +1,8 @@
 import os
-import anthropic
+import re
+import json
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import SystemMessage, HumanMessage
 from sqlalchemy.orm import Session
 
 def load_brand_context(db: Session, keys: list[str]) -> dict:
@@ -10,12 +13,13 @@ def load_brand_context(db: Session, keys: list[str]) -> dict:
 
 class ICPAgent:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=120.0)
+        self.model_name = "claude-opus-4-7"
 
     def score_topic(self, topic: str, angle: str = "", target_persona: str = "", db: Session = None) -> dict:
         """
         Score a topic against Bitcot's ICP. Returns score (0.0–1.0) + decision.
         Loads live brand context from memory layer before scoring.
+        Uses LangChain ChatAnthropic for completion.
         """
         # Pull relevant context from memory layer
         ctx = {}
@@ -103,15 +107,19 @@ Score below 0.5 = REJECT (blocked for 7 days).
             user_msg += f"\nTarget Persona: {target_persona}"
 
         try:
-            response = self.client.messages.create(
-                model="claude-opus-4-7",
-                max_tokens=512,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_msg}]
+            chat = ChatAnthropic(
+                model=self.model_name,
+                anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+                timeout=120.0,
+                max_tokens=512
             )
-            text = response.content[0].text.strip()
+            response = chat.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_msg)
+            ])
+            text = response.content.strip()
+
             # Extract JSON
-            import json, re
             m = re.search(r'\{.*\}', text, re.DOTALL)
             if m:
                 result = json.loads(m.group())
@@ -162,17 +170,21 @@ Return ONLY a JSON object with this exact structure:
             user_msg += f"\nOriginal Image Idea: {image_idea}"
 
         try:
-            response = self.client.messages.create(
-                model="claude-opus-4-7",
-                max_tokens=350,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_msg}]
+            chat = ChatAnthropic(
+                model=self.model_name,
+                anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+                timeout=120.0,
+                max_tokens=350
             )
-            text = response.content[0].text.strip()
-            import json, re
+            response = chat.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_msg)
+            ])
+            text = response.content.strip()
+
             m = re.search(r'\{.*\}', text, re.DOTALL)
             if m:
                 return json.loads(m.group())
             return {"enhanced_topic": topic, "enhanced_angle": "Focus on highly specific enterprise applications.", "enhanced_image_idea": image_idea}
         except Exception as e:
-            return {"enhanced_topic": topic, "enhanced_angle": f"Error: {str(e)}"}
+            return {"enhanced_topic": topic, "enhanced_angle": f"Error: {str(e)}", "enhanced_image_idea": image_idea}

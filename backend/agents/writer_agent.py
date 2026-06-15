@@ -1,7 +1,8 @@
 import os
 import json
 import re
-import anthropic
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import SystemMessage, HumanMessage
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
@@ -13,11 +14,11 @@ def load_brand_context(db: Session, keys: list[str]) -> dict:
 
 class WriterAgent:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=120.0)
+        self.model_name = "claude-opus-4-7"
 
     def generate_draft(self, topic: str, angle: str = "", icp_result: dict = None, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", db: Session = None) -> dict:
         """
-        Generate multi-format content (Blog, LinkedIn, X thread).
+        Generate multi-format content (Blog, LinkedIn, X thread) using LangChain ChatAnthropic.
         Loads all voice rules, approved stats, and format rules from memory layer first.
         """
         # Load rich context from memory layer
@@ -178,12 +179,8 @@ If you use statistics, you MUST either use highly relevant ones from the APPROVE
 ═══ TRUST SIGNALS & CREDIBILITY (CRITICAL) ═══
 You MUST include a strong section establishing credibility. Use exact statements like: "Our team has delivered 100+ mobile applications and worked with enterprise iOS architectures across healthcare, fintech, and SaaS platforms." Do not make claims about the future without grounding them in our past implementation experience.
 
-═══ BLOG BODY STRUCTURE & DYNAMIC STRATEGY (CRITICAL) ═══
-Instead of a rigid template, you MUST act as a Content Strategist. Analyze the topic, angle, and target persona. Based on this, dynamically select and arrange 5 to 7 modules from the "Library of Narrative Modules" below to construct the most compelling argument.
-
-[MANDATORY BOOKENDS]
-You MUST always start and end the body with these elements:
-START:
+═══ BLOG BODY STRUCTURE (CRITICAL) ═══
+You MUST format the "body" field of the blog exactly as follows to match our proven structure:
 1. **Key Takeaways**: Wrapped exactly like this:
 <div class="key-takeaways">
   <h2>Key Takeaways</h2>
@@ -192,32 +189,20 @@ START:
     <li>Insight 2</li>
   </ul>
 </div>
-2. **Executive Summary / Introduction**: What is the topic? Why does it matter right now?
-3. **Quick Answer Section**: A dedicated section titled "What Is [Topic]?" optimized for AI search overviews.
-
-END:
-4. **Conclusion**: A definitive wrap-up.
-5. **Why Bitcot (Strategic CTA)**: Establish trust (100+ mobile apps delivered) and offer specific value (e.g., architecture review, risk evaluation).
-6. **FAQs**: Wrapped exactly like this at the very end:
+2. **Introduction**: Create an urgent hook. Do NOT use generic openings.
+3. **Industry Problem**: Describe the friction and broken processes in the industry today.
+4. **Strategic Insight / POV**: Our contrarian angle and unique perspective.
+5. **What We Built & Tech Stack**: Dive deep into technical architecture.
+6. **Challenges and Solutions**: Real-world implementation details.
+7. **Business Impact & ROI**: Why executives should care.
+8. **Why Bitcot (CTA)**: Establish trust (100+ mobile apps delivered) with a strong conversional CTA.
+9. **Conclusion**: A definitive wrap-up wrapping the argument together.
+10. **FAQs**: Wrapped exactly like this at the very end:
 <div class="faq-section">
   <h2>Frequently Asked Questions</h2>
   <h3>Question 1</h3>
   <p>Answer 1</p>
 </div>
-
-[LIBRARY OF NARRATIVE MODULES]
-Choose the best 5 to 7 modules for the middle of the post. Do NOT use modules that don't fit the topic (e.g. no Executive Frameworks for a tactical coding tutorial):
-- **Strategic Insight / POV**: Our contrarian angle.
-- **Industry Problem**: Describe the friction in the industry today.
-- **CTO Action Framework**: A 30/90/12-month roadmap (Best for executives/strategy).
-- **Real-World Case Studies**: Challenge -> Architecture -> Outcome.
-- **Supporting Statistics & Market Data**: Reference Gartner, IDC, etc.
-- **What We Built & Tech Stack**: Deep dive into architecture.
-- **Code Walkthrough / Implementation**: Practical coding steps (Best for developers).
-- **Challenges and Solutions**: Real-world hurdles.
-- **Business Impact & ROI**: Financial and operational benefits.
-- **Expert Perspectives**: Viewpoints from analysts, CISOs, CTOs.
-- **GEO Optimization (Direct Answers)**: Sections like "Why Does This Matter?" or "What Are the Risks?"
 
 Interleave exactly 2 to 3 image placeholders between major paragraphs using this exact format: `[IMAGE: highly detailed prompt for an architectural diagram, cloud architecture data pipeline, or technical flowchart. Avoid generic AI people/robots. Focus on abstract diagrams and workflows.]`
 
@@ -271,17 +256,23 @@ Generate the full Blog + LinkedIn + X Thread now."""
             user_msg += "\n\nCRITICAL INSTRUCTION: You MUST heavily integrate the actual facts, product names, metrics, and details from the WEb Search Context provided above. Do not just write a generic philosophical piece. Ground your contrarian angle strictly in the concrete events/announcements retrieved from the web search."
 
         try:
-            response = self.client.messages.create(
-                model="claude-opus-4-7",
-                max_tokens=8192,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_msg}]
+            chat = ChatAnthropic(
+                model=self.model_name,
+                anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+                timeout=120.0,
+                max_tokens=8192
             )
-            text = response.content[0].text.strip()
+            response = chat.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_msg)
+            ])
+            text = response.content.strip()
             
-            if hasattr(response, 'usage'):
-                inp = response.usage.input_tokens
-                out = response.usage.output_tokens
+            token_usage = {}
+            if hasattr(response, 'response_metadata') and 'usage' in response.response_metadata:
+                usage = response.response_metadata['usage']
+                inp = usage.get('input_tokens', 0)
+                out = usage.get('output_tokens', 0)
                 cost = (inp * 0.000015) + (out * 0.000075)
                 token_usage = {
                     "input_tokens": inp,
@@ -289,14 +280,9 @@ Generate the full Blog + LinkedIn + X Thread now."""
                     "total_tokens": inp + out,
                     "estimated_cost_usd": round(cost, 4)
                 }
-            else:
-                token_usage = {}
 
             # Extract JSON
             import json_repair
-            import urllib.parse
-            from openai import OpenAI
-
             openai_key = os.getenv("OPENAI_API_KEY", "")
             openai_client = None
             if openai_key.strip():
@@ -308,11 +294,6 @@ Generate the full Blog + LinkedIn + X Thread now."""
             m = re.search(r'\{.*\}', text, re.DOTALL)
             if m:
                 result = json_repair.loads(m.group())
-                # Enforce: scan for untagged stats
-                blog_body = result.get("blog", {}).get("body", "")
-                li_post = result.get("linkedin", {}).get("post", "")
-                check_flags = result.get("check_flags", [])
-
                 blog_data = result.get("blog", {})
                 blog_body_raw = blog_data.get("body", "")
                 
@@ -342,7 +323,8 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     img_url = f"data:image/png;base64,{img_data_res.b64_json}"
                                 else:
                                     img_url = img_data_res.url
-                                token_usage["estimated_cost_usd"] += 0.040
+                                if token_usage:
+                                    token_usage["estimated_cost_usd"] += 0.040
                         except Exception as e:
                             print(f"OpenAI Inline Image Gen failed: {e}")
                     
@@ -376,6 +358,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     )
                                     if "YES" in img_check.choices[0].message.content.upper():
                                         is_valid = True
+                                  
                                 except Exception as ve:
                                     print(f"Image verification failed: {ve}")
                             
@@ -402,7 +385,8 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                         blog_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
                                     else:
                                         blog_data["image_url"] = img_data.url
-                                    token_usage["estimated_cost_usd"] += 0.040
+                                    if token_usage:
+                                        token_usage["estimated_cost_usd"] += 0.040
                             except Exception as fall_e:
                                 print(f"OpenAI fallback Gen failed: {fall_e}")
                     else:
@@ -420,7 +404,8 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     blog_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
                                 else:
                                     blog_data["image_url"] = img_data.url
-                                token_usage["estimated_cost_usd"] += 0.040
+                                if token_usage:
+                                    token_usage["estimated_cost_usd"] += 0.040
                             else:
                                 blog_data["image_url"] = ""
                         except Exception as e:
@@ -452,7 +437,8 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     li_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
                                 else:
                                     li_data["image_url"] = img_data.url
-                                token_usage["estimated_cost_usd"] += 0.040
+                                if token_usage:
+                                    token_usage["estimated_cost_usd"] += 0.040
                             else:
                                 li_data["image_url"] = ""
                         except Exception as e:
@@ -467,7 +453,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                     "linkedin": li_data,
                     "x_thread": result.get("x_thread", {}),
                     "needs_human_check": result.get("needs_human_check", True),
-                    "check_flags": check_flags,
+                    "check_flags": result.get("check_flags", []),
                     "status": "pending_review",
                     "token_usage": token_usage,
                 }

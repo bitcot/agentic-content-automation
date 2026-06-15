@@ -1,6 +1,7 @@
 import os
 from pydantic import BaseModel
-import anthropic
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import SystemMessage, HumanMessage
 from database import SessionLocal
 import models
 
@@ -16,21 +17,12 @@ class AnalyticsAgent:
         self.ga4_credentials_path = os.getenv("GA4_CREDENTIALS_JSON")
         self.ga4_property_id = os.getenv("GA4_PROPERTY_ID")
         self.linkedin_access_token = os.getenv("LINKEDIN_ACCESS_TOKEN")
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.model_name = "claude-opus-4-7"
 
     def get_metrics(self) -> AnalyticsMetrics:
         """
         Fetches metrics from GA4, LinkedIn, X APIs and analyzes them.
         """
-        if self.ga4_credentials_path and self.ga4_property_id:
-            try:
-                # In production, use: from google.analytics.data_v1beta import BetaAnalyticsDataClient
-                # client = BetaAnalyticsDataClient.from_service_account_json(self.ga4_credentials_path)
-                # Build run_report request and process real stats
-                pass
-            except Exception as e:
-                print(f"GA4 Error: {e}")
-
         # Fallback / Mock logic when APIs aren't set
         return AnalyticsMetrics(
             linkedin_engagement_rate=1.82,
@@ -71,14 +63,16 @@ class AnalyticsAgent:
             
             user_msg = f"HIGH PERFORMING POSTS:\n{high_perf_text}\n\nLOW PERFORMING POSTS:\n{low_perf_text}\n\nGenerate the AI Learnings Rulebook now."
 
-            response = self.client.messages.create(
-                model="claude-opus-4-7",
-                max_tokens=1024,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_msg}]
+            chat = ChatAnthropic(
+                model=self.model_name,
+                anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+                max_tokens=1024
             )
-
-            rulebook = response.content[0].text.strip()
+            response = chat.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_msg)
+            ])
+            rulebook = response.content.strip()
 
             bc = db.query(models.BrandContext).filter_by(key="ai_learnings").first()
             if bc:

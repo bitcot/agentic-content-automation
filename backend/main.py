@@ -220,53 +220,46 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
     Chains ICP → SEO → Writer agents.
     Both agents load brand context from the Supabase memory layer.
     """
-    icp_agent = ICPAgent()
-    seo_agent = SEOAgent()
-    writer_agent = WriterAgent()
+    from agents.graph import app_graph
 
-    # Step 1: ICP Alignment — loads personas, geo rules, verticals from DB
-    icp_result = icp_agent.score_topic(request.topic, angle=request.angle, target_persona=request.target_persona, db=db)
-    score = icp_result.get("score", 0.0)
-    decision = icp_result.get("decision", "REJECT")
+    # Initialize Graph State
+    initial_state = {
+        "topic": request.topic,
+        "angle": request.angle,
+        "target_persona": request.target_persona,
+        "tone": request.tone,
+        "author_voice": request.author_voice,
+        "image_idea": request.image_idea,
+        "use_web_search": request.use_web_search,
+        "image_source": request.image_source,
+        "db_session": db,
+        "icp_result": None,
+        "seo_data": None,
+        "draft": None,
+        "status": ""
+    }
 
-    if score < 0.65:
-        if icp_result.get("reshape_suggestion"):
-            request.angle = icp_result["reshape_suggestion"]
-            score = 0.65
-            icp_result["score"] = score
-            decision = "RESHAPE_ADOPTED"
-            icp_result["decision"] = decision
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Topic rejected by ICP Agent. "
-                    f"Score: {score:.2f}. "
-                    f"Reason: {icp_result.get('reasoning', 'Does not match Bitcot ICP.')} "
-                    f"Suggestion: {icp_result.get('reshape_suggestion', '')}"
-                )
+    # Execute LangGraph
+    final_state = app_graph.invoke(initial_state)
+
+    if final_state["status"] == "rejected":
+        icp_result = final_state.get("icp_result", {})
+        score = icp_result.get("score", 0.0)
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Topic rejected by ICP Agent. "
+                f"Score: {score:.2f}. "
+                f"Reason: {icp_result.get('reasoning', 'Does not match Bitcot ICP.')} "
+                f"Suggestion: {icp_result.get('reshape_suggestion', '')}"
             )
+        )
 
-    # Step 2: SEO Analysis (keyword context)
-    try:
-        seo_package = seo_agent.analyze_topic(request.topic)
-        seo_data = seo_package.model_dump() if hasattr(seo_package, 'model_dump') else {}
-    except Exception:
-        seo_data = {}
+    draft = final_state["draft"]
+    score = final_state.get("icp_result", {}).get("score", 0.0)
+    decision = final_state.get("icp_result", {}).get("decision", "PASS")
+    icp_result = final_state.get("icp_result", {})
 
-    # Step 3: Writer — loads all voice rules + approved stats from DB
-    draft = writer_agent.generate_draft(
-        topic=request.topic,
-        angle=request.angle,
-        icp_result=icp_result,
-        target_persona=request.target_persona,
-        tone=request.tone,
-        author_voice=request.author_voice,
-        image_idea=request.image_idea,
-        use_web_search=request.use_web_search,
-        image_source=request.image_source,
-        db=db
-    )
 
     # Save to ContentLog (one row per generation run)
     import json

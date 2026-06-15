@@ -15,44 +15,39 @@ def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: s
     """
     db = SessionLocal()
     try:
-        icp_agent = ICPAgent()
-        seo_agent = SEOAgent()
-        writer_agent = WriterAgent()
+        from agents.graph import app_graph
 
-        # 1. ICP
-        icp_result = icp_agent.score_topic(topic, angle=angle, db=db)
-        score = icp_result.get("score", 0.0)
-        decision = icp_result.get("decision", "REJECT")
+        # Initialize Graph State
+        initial_state = {
+            "topic": topic,
+            "angle": angle,
+            "target_persona": "",
+            "tone": tone,
+            "author_voice": "bitcot",
+            "image_idea": image_idea,
+            "use_web_search": use_web_search,
+            "image_source": image_source,
+            "db_session": db,
+            "icp_result": None,
+            "seo_data": None,
+            "draft": None,
+            "status": ""
+        }
 
-        if score < 0.65:
-            if icp_result.get("reshape_suggestion"):
-                angle = icp_result["reshape_suggestion"]
-                icp_result["score"] = 0.65
-                icp_result["decision"] = "RESHAPE_ADOPTED"
-            else:
-                return {
-                    "status": "rejected",
-                    "reason": icp_result.get("reasoning", "Failed ICP check")
-                }
+        # Execute LangGraph
+        final_state = app_graph.invoke(initial_state)
 
-        # 2. SEO
-        try:
-            seo_package = seo_agent.analyze_topic(topic)
-            seo_data = seo_package.model_dump() if hasattr(seo_package, 'model_dump') else {}
-        except Exception:
-            seo_data = {}
+        if final_state["status"] == "rejected":
+            icp_result = final_state.get("icp_result", {})
+            return {
+                "status": "rejected",
+                "reason": icp_result.get("reasoning", "Failed ICP check")
+            }
 
-        # 3. Writer
-        draft = writer_agent.generate_draft(
-            topic=topic,
-            angle=angle,
-            icp_result=icp_result,
-            tone=tone,
-            image_idea=image_idea,
-            use_web_search=use_web_search,
-            image_source=image_source,
-            db=db
-        )
+        draft = final_state["draft"]
+        score = final_state.get("icp_result", {}).get("score", 0.0)
+        icp_result = final_state.get("icp_result", {})
+
 
         import json
         blog_body = draft.get("blog", {}).get("body", "")

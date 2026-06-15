@@ -1,22 +1,20 @@
 import os
-from dotenv import load_dotenv
-load_dotenv()
-
+import re
 import requests
 import json
-import anthropic
-import re
+from langchain_anthropic import ChatAnthropic
+from langchain_core.messages import SystemMessage, HumanMessage
 from ddgs import DDGS
 
 class TrendAgent:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"), timeout=120.0)
+        self.model_name = "claude-opus-4-7"
         self.ddgs = DDGS()
 
     def discover_trends(self) -> list:
         """
         Scrapes HackerNews and DuckDuckGo for trending software/AI news.
-        Passes the batch to Claude to select the top 3 that match our ICP.
+        Passes the batch to Claude (via LangChain) to select the top 3 that match our ICP.
         """
         headlines = []
 
@@ -44,7 +42,6 @@ class TrendAgent:
             print(f"DDG News error: {e}")
 
         if not headlines:
-            # Fallback mock data if network fails
             headlines = [
                 "OpenAI releases new fine-tuning API for enterprise",
                 "Why 60% of GenAI pilots fail in production",
@@ -74,15 +71,18 @@ Return ONLY a valid JSON array of 3 objects with this exact structure:
 """
         
         try:
-            response = self.client.messages.create(
-                model="claude-opus-4-7",
-                max_tokens=1000,
-                system=system_prompt,
-                messages=[{"role": "user", "content": f"Here are the trending headlines:\n{headlines_text}\n\nSelect the top 3 and return as JSON."}]
+            chat = ChatAnthropic(
+                model=self.model_name,
+                anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+                timeout=120.0,
+                max_tokens=1000
             )
-            text = response.content[0].text.strip()
+            response = chat.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=f"Here are the trending headlines:\n{headlines_text}\n\nSelect the top 3 and return as JSON.")
+            ])
+            text = response.content.strip()
             
-            # Extract JSON
             import json_repair
             m = re.search(r'\[.*\]', text, re.DOTALL)
             if m:
