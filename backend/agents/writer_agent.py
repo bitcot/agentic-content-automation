@@ -418,10 +418,53 @@ Generate the full Blog + LinkedIn + X Thread now."""
                         try:
                             from agents.research_agent import ResearchAgent
                             research_agent = ResearchAgent()
-                            li_data["image_url"] = research_agent.search_image(topic + " " + image_idea)
+                            fetched_url = research_agent.search_image(topic + " " + image_idea)
+                            
+                            is_valid = False
+                            if openai_client and fetched_url:
+                                try:
+                                    img_check = openai_client.chat.completions.create(
+                                        model="gpt-4o-mini",
+                                        messages=[
+                                            {"role": "user", "content": [
+                                                {"type": "text", "text": f"Is this image highly suitable, professional, and relevant for a technical LinkedIn post about: {topic}? Reply 'YES' or 'NO'."},
+                                                {"type": "image_url", "image_url": {"url": fetched_url}}
+                                            ]}
+                                        ],
+                                        max_tokens=10
+                                    )
+                                    if "YES" in img_check.choices[0].message.content.upper():
+                                        is_valid = True
+                                except Exception as ve:
+                                    print(f"Image verification failed: {ve}")
+                            
+                            if is_valid:
+                                li_data["image_url"] = fetched_url
+                            else:
+                                print("Web image rejected by AI. Falling back to generation.")
+                                raise Exception("Web image rejected.")
                         except Exception as e:
                             li_data["image_url"] = ""
                             print(f"Web Image search failed: {e}")
+                            # Fallback to Generation
+                            try:
+                                if openai_client:
+                                    img_res = openai_client.images.generate(
+                                        model="gpt-image-1-mini",
+                                        prompt=li_data["image_prompt"],
+                                        n=1,
+                                        size="1024x1024",
+                                        response_format="b64_json"
+                                    )
+                                    img_data = img_res.data[0]
+                                    if hasattr(img_data, "b64_json") and img_data.b64_json:
+                                        li_data["image_url"] = f"data:image/png;base64,{img_data.b64_json}"
+                                    else:
+                                        li_data["image_url"] = img_data.url
+                                    if token_usage:
+                                        token_usage["estimated_cost_usd"] += 0.040
+                            except Exception as fall_e:
+                                print(f"OpenAI fallback Gen failed: {fall_e}")
                     else:
                         try:
                             if openai_client:
