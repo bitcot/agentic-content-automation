@@ -321,7 +321,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                         try:
                             if openai_client:
                                 img_res = openai_client.images.generate(
-                                    model="gpt-image-1-mini",
+                                    model="dall-e-3",
                                     prompt=prompt_text,
                                     n=1,
                                     size="1024x1024",
@@ -383,7 +383,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                             try:
                                 if openai_client:
                                     img_res = openai_client.images.generate(
-                                        model="gpt-image-1-mini",
+                                        model="dall-e-3",
                                         prompt=blog_data["image_prompt"],
                                         n=1,
                                         size="1024x1024",
@@ -402,7 +402,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                         try:
                             if openai_client:
                                 img_res = openai_client.images.generate(
-                                    model="gpt-image-1-mini",
+                                    model="dall-e-3",
                                     prompt=blog_data["image_prompt"],
                                     n=1,
                                     size="1024x1024",
@@ -459,7 +459,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                             try:
                                 if openai_client:
                                     img_res = openai_client.images.generate(
-                                        model="gpt-image-1-mini",
+                                        model="dall-e-3",
                                         prompt=li_data["image_prompt"],
                                         n=1,
                                         size="1024x1024",
@@ -478,7 +478,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                         try:
                             if openai_client:
                                 img_res = openai_client.images.generate(
-                                    model="gpt-image-1-mini",
+                                    model="dall-e-3",
                                     prompt=li_data["image_prompt"],
                                     n=1,
                                     size="1024x1024",
