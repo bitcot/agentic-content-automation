@@ -189,7 +189,16 @@ You MUST format the "body" field of the blog exactly as follows to match our pro
     <li>Insight 2</li>
   </ul>
 </div>
-2. **Introduction**: Create an urgent hook. Do NOT use generic openings.
+2. **Table of Contents**: A complete list of all the main topics covered in the blog post, wrapped exactly like this:
+<div class="table-of-contents">
+  <h2>Table of Contents</h2>
+  <ul>
+    <li><a href="#introduction">Introduction</a></li>
+    <li><a href="#industry-problem">Industry Problem</a></li>
+    <!-- List all H2 sections here -->
+  </ul>
+</div>
+3. **Introduction**: Create an urgent hook. Do NOT use generic openings.
 3. **Industry Problem**: Describe the friction and broken processes in the industry today.
 4. **Strategic Insight / POV**: Our contrarian angle and unique perspective.
 5. **What We Built & Tech Stack**: Dive deep into technical architecture.
