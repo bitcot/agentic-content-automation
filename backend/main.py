@@ -380,14 +380,9 @@ def schedule_post(request: ScheduleRequest, db: Session = Depends(get_db)):
     """
     Schedules an approved post.
     """
-    scheduler = Scheduler()
-    from datetime import datetime
-    try:
-        dt = datetime.fromisoformat(request.schedule_time)
-    except ValueError:
-        dt = datetime.utcnow()
-        
-    result = scheduler.schedule_content(request.content_id, request.platform, dt)
+    from agents.publisher_agent import PublisherAgent
+    scheduler = PublisherAgent()
+    result = scheduler.schedule_content(request.content_id, request.platform, request.schedule_time)
     return result
 
 @app.get("/analytics")

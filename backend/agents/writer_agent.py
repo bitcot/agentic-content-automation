@@ -324,8 +324,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     model="dall-e-3",
                                     prompt=prompt_text,
                                     n=1,
-                                    size="1024x1024",
-                                    response_format="b64_json"
+                                    size="1024x1024"
                                 )
                                 img_data_res = img_res.data[0]
                                 if hasattr(img_data_res, "b64_json") and img_data_res.b64_json:
@@ -359,7 +358,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                         model="gpt-4o-mini",
                                         messages=[
                                             {"role": "user", "content": [
-                                                {"type": "text", "text": f"Is this image highly suitable, professional, and relevant for a technical blog post about: {topic}? Reply 'YES' or 'NO'."},
+                                                {"type": "text", "text": f"You are a strict technical editor. Analyze this image. Is it a highly relevant, professional, technical diagram or exact representation of: {topic}? Reject generic stock photos of people, abstract glowing brains, or irrelevant corporate environments. Reply ONLY 'YES' if it is a specific, high-quality technical graphic. Otherwise, reply 'NO'."},
                                                 {"type": "image_url", "image_url": {"url": fetched_url}}
                                             ]}
                                         ],
@@ -386,8 +385,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                         model="dall-e-3",
                                         prompt=blog_data["image_prompt"],
                                         n=1,
-                                        size="1024x1024",
-                                        response_format="b64_json"
+                                        size="1024x1024"
                                     )
                                     img_data = img_res.data[0]
                                     if hasattr(img_data, "b64_json") and img_data.b64_json:
@@ -405,8 +403,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     model="dall-e-3",
                                     prompt=blog_data["image_prompt"],
                                     n=1,
-                                    size="1024x1024",
-                                    response_format="b64_json"
+                                    size="1024x1024"
                                 )
                                 img_data = img_res.data[0]
                                 if hasattr(img_data, "b64_json") and img_data.b64_json:
@@ -436,7 +433,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                         model="gpt-4o-mini",
                                         messages=[
                                             {"role": "user", "content": [
-                                                {"type": "text", "text": f"Is this image highly suitable, professional, and relevant for a technical LinkedIn post about: {topic}? Reply 'YES' or 'NO'."},
+                                                {"type": "text", "text": f"You are a strict technical editor. Analyze this image. Is it a highly relevant, professional, technical diagram or exact representation of: {topic}? Reject generic stock photos of people, abstract glowing brains, or irrelevant corporate environments. Reply ONLY 'YES' if it is a specific, high-quality technical graphic. Otherwise, reply 'NO'."},
                                                 {"type": "image_url", "image_url": {"url": fetched_url}}
                                             ]}
                                         ],
@@ -462,8 +459,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                         model="dall-e-3",
                                         prompt=li_data["image_prompt"],
                                         n=1,
-                                        size="1024x1024",
-                                        response_format="b64_json"
+                                        size="1024x1024"
                                     )
                                     img_data = img_res.data[0]
                                     if hasattr(img_data, "b64_json") and img_data.b64_json:
@@ -481,8 +477,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                                     model="dall-e-3",
                                     prompt=li_data["image_prompt"],
                                     n=1,
-                                    size="1024x1024",
-                                    response_format="b64_json"
+                                    size="1024x1024"
                                 )
                                 img_data = img_res.data[0]
                                 if hasattr(img_data, "b64_json") and img_data.b64_json:
