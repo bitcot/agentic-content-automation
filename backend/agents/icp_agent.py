@@ -4,6 +4,7 @@ import json
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 from sqlalchemy.orm import Session
+from agents.logger import emit_agent_log
 
 def load_brand_context(db: Session, keys: list[str]) -> dict:
     """Pull specific keys from brand_context table for agent use."""
@@ -21,6 +22,8 @@ class ICPAgent:
         Loads live brand context from memory layer before scoring.
         Uses LangChain ChatAnthropic for completion.
         """
+        emit_agent_log("ICPAgent", f"Evaluating topic: '{topic}' for ICP alignment.", {"angle": angle})
+
         # Pull relevant context from memory layer
         ctx = {}
         if db:

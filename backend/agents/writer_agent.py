@@ -5,6 +5,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 from openai import OpenAI
 from sqlalchemy.orm import Session
+from agents.logger import emit_agent_log
 
 def load_brand_context(db: Session, keys: list[str]) -> dict:
     """Pull specific keys from brand_context table."""
@@ -21,6 +22,7 @@ class WriterAgent:
         Generate multi-format content (Blog, LinkedIn, X thread) using LangChain ChatAnthropic.
         Loads all voice rules, approved stats, and format rules from memory layer first.
         """
+        emit_agent_log("WriterAgent", f"Generating multi-format draft for: '{topic}'", {"tone": tone, "persona": target_persona})
         # Load rich context from memory layer
         ctx = {}
         if db:
@@ -213,7 +215,9 @@ You MUST format the "body" field of the blog exactly as follows to match our pro
   <p>Answer 1</p>
 </div>
 
-Interleave exactly 2 to 3 image placeholders between major paragraphs using this exact format: `[IMAGE: highly detailed prompt for an architectural diagram, cloud architecture data pipeline, or technical flowchart. Avoid generic AI people/robots. Focus on abstract diagrams and workflows.]`
+CRITICAL IMAGE INSTRUCTION: You MUST interleave EXACTLY 3 image placeholders throughout the body text (e.g. after H2 sections). Use this exact format:
+`[IMAGE: highly detailed prompt for an architectural diagram, cloud architecture data pipeline, or technical flowchart. Avoid generic AI people/robots.]`
+DO NOT skip this. The blog MUST contain exactly 3 `[IMAGE: ...]` tags.
 
 ═══ OUTPUT FORMAT ═══
 Return ONLY valid JSON with this exact structure:
@@ -310,6 +314,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                 def replace_inline_image(match):
                     prompt_text = match.group(1).strip()
                     img_url = ""
+                    
                     if image_source == "web":
                         try:
                             from agents.research_agent import ResearchAgent
@@ -317,11 +322,14 @@ Generate the full Blog + LinkedIn + X Thread now."""
                             img_url = research_agent.search_image(prompt_text)
                         except Exception as e:
                             print(f"Web Inline Image search failed: {e}")
-                    else:
+                            
+                    # If web search failed (or rejected by safety filter) or if image_source == "ai", fallback to DALL-E 3
+                    if not img_url:
                         try:
+                            print(f"Falling back to DALL-E 3 for inline image: {prompt_text}")
                             if openai_client:
                                 img_res = openai_client.images.generate(
-                                    model="dall-e-3",
+                                    model="gpt-image-1-mini",
                                     prompt=prompt_text,
                                     n=1,
                                     size="1024x1024"
@@ -382,7 +390,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                             try:
                                 if openai_client:
                                     img_res = openai_client.images.generate(
-                                        model="dall-e-3",
+                                        model="gpt-image-1-mini",
                                         prompt=blog_data["image_prompt"],
                                         n=1,
                                         size="1024x1024"

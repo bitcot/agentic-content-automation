@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ManualInputPanel from '@/components/ManualInputPanel';
 import HumanReviewPanel from '@/components/HumanReviewPanel';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
@@ -13,15 +13,73 @@ export default function Home() {
   const [draftData, setDraftData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  const [agentLogs, setAgentLogs] = useState<any[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    let ws: WebSocket;
+    let reconnectTimeout: NodeJS.Timeout;
+
+    const connectWS = () => {
+      const wsUrl = `ws://${window.location.hostname}:8000/ws`;
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => console.log("Connected to WS:", wsUrl);
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "AGENT_LOG") {
+            setAgentLogs(prev => [...prev, data]);
+          }
+        } catch (err) {
+          console.error("WS Parse error", err);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("WS Closed, reconnecting in 2s...");
+        reconnectTimeout = setTimeout(connectWS, 2000);
+      };
+
+      ws.onerror = (e) => {
+        console.error("WS Error:", e);
+        ws.close(); // Trigger onclose to reconnect
+      };
+    };
+
+    connectWS();
+    
+    return () => {
+      clearTimeout(reconnectTimeout);
+      if (ws) {
+        ws.onclose = null; // Prevent reconnect loop
+        ws.close();
+      }
+    };
+  }, []);
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsLoading(false);
+      setAgentLogs(prev => [...prev, { agent: "System", message: "Generation stopped by user." }]);
+    }
+  };
 
   const handleGenerate = async (data: any) => {
     setIsLoading(true);
     setError(null);
+    setAgentLogs([]);
+    
+    abortControllerRef.current = new AbortController();
+    
     try {
       const backendUrl = `http://${window.location.hostname}:8000`;
       const res = await fetch(`${backendUrl}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortControllerRef.current.signal,
         body: JSON.stringify({ 
           topic: data.topic, 
           angle: data.angle, 
@@ -37,9 +95,14 @@ export default function Home() {
       if (!res.ok) throw new Error(result.detail || 'Generation failed');
       setDraftData(result);
     } catch (err: any) {
-      setError(err.message);
+      if (err.name === 'AbortError') {
+        console.log("Generation aborted");
+      } else {
+        setError(err.message);
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -214,7 +277,7 @@ export default function Home() {
       <main>
         {tab === 'generate' ? (
           !draftData ? (
-            <ManualInputPanel onGenerate={handleGenerate} isLoading={isLoading} />
+            <ManualInputPanel onGenerate={handleGenerate} isLoading={isLoading} agentLogs={agentLogs} onStop={handleStop} />
           ) : (
             <HumanReviewPanel
               draftData={draftData}

@@ -15,9 +15,13 @@ const platforms = ["LinkedIn", "X Thread", "Blog", "Newsletter"];
 export default function ManualInputPanel({
   onGenerate,
   isLoading,
+  agentLogs = [],
+  onStop,
 }: {
   onGenerate: (data: any) => void;
   isLoading: boolean;
+  agentLogs?: any[];
+  onStop?: () => void;
 }) {
   const [topic, setTopic]       = useState("");
   const [angle, setAngle]       = useState("");
@@ -416,20 +420,57 @@ export default function ManualInputPanel({
 
         {/* CTA */}
         <div style={{ paddingTop: 8, display: 'flex', alignItems: 'center', gap: 20 }}>
-          <button
-            className="btn btn-primary"
-            onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, useWebSearch, imageSource, platforms: [...activePlatforms] })}
-            disabled={isLoading || !topic.trim()}
-            style={{ padding: '12px 32px', fontSize: 12 }}
-          >
-            {isLoading ? 'Generating…' : 'Generate All Formats →'}
-          </button>
+          {!isLoading ? (
+            <button
+              className="btn btn-primary"
+              onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, useWebSearch, imageSource, platforms: [...activePlatforms] })}
+              disabled={!topic.trim()}
+              style={{ padding: '12px 32px', fontSize: 12 }}
+            >
+              Generate All Formats →
+            </button>
+          ) : (
+            <button
+              className="btn"
+              onClick={onStop}
+              style={{ padding: '12px 32px', fontSize: 12, background: 'rgba(255, 65, 54, 0.1)', color: 'var(--danger)', border: '1px solid var(--danger)' }}
+            >
+              Stop Generation ⏹
+            </button>
+          )}
           {isLoading && (
-            <div style={{ flex: 1 }}>
-              <div className="loading-bar" />
-              <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                ICP scoring → SEO analysis → Writing drafts
-              </p>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <div className="loading-bar" />
+                <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Pipeline Active
+                </p>
+              </div>
+              <div style={{
+                background: '#0a0a0a',
+                border: '1px solid rgba(200,255,0,0.2)',
+                borderRadius: 4,
+                padding: 12,
+                height: 120,
+                overflowY: 'auto',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                color: 'var(--paper)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6
+              }}>
+                {(!agentLogs || agentLogs.length === 0) ? (
+                  <div style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Waiting for agent logs...</div>
+                ) : (
+                  agentLogs.map((log, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8 }}>
+                      <span style={{ color: 'var(--accent)', opacity: 0.7 }}>[{log.agent}]</span>
+                      <span>{log.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@ import os
 import requests
 from pydantic import BaseModel
 from base64 import b64encode
+from agents.logger import emit_agent_log
 
 class SEOPackage(BaseModel):
     topic: str
@@ -21,6 +22,7 @@ class SEOAgent:
         Analyzes a topic for SEO opportunities using DataForSEO API.
         Extracts keyword volume and suggests titles.
         """
+        emit_agent_log("SEOAgent", f"Analyzing SEO opportunities for: '{topic}'", {"topic": topic})
         if not self.login or not self.password:
             # Fallback to sandbox if API keys aren't provided yet
             return SEOPackage(

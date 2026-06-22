@@ -44,6 +44,35 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+import asyncio
+import json
+import redis.asyncio as aioredis
+
+async def listen_to_redis_logs():
+    try:
+        r = await aioredis.from_url("redis://localhost:6379/0", decode_responses=True)
+        pubsub = r.pubsub()
+        await pubsub.subscribe("agent_logs")
+        print("Subscribed to agent_logs channel")
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                try:
+                    data = json.loads(message["data"])
+                    print("Broadcasting log:", data)
+                    await manager.broadcast(data)
+                except Exception as e:
+                    print(f"Error broadcasting message: {e}")
+    except Exception as e:
+        print(f"Redis listener failed to start: {e}")
+
+background_tasks = set()
+
+@app.on_event("startup")
+async def startup_event():
+    task = asyncio.create_task(listen_to_redis_logs())
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.discard)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -1,6 +1,7 @@
 from ddgs import DDGS
 from openai import OpenAI
 import os
+from agents.logger import emit_agent_log
 
 class ResearchAgent:
     def __init__(self):
@@ -12,6 +13,7 @@ class ResearchAgent:
         Searches the web for a topic and returns a compiled context string
         of the top results to be injected into an LLM prompt.
         """
+        emit_agent_log("ResearchAgent", f"Searching web for: '{query}'", {"query": query})
         try:
             results = list(self.ddgs.text(query, max_results=max_results))
             if not results:
@@ -34,8 +36,26 @@ class ResearchAgent:
         Searches for web images and uses a Vision model to verify suitability.
         Rejects generic abstract vectors or low quality stock photos.
         """
+        emit_agent_log("ResearchAgent", f"Searching for web images matching: '{query}'")
         try:
-            results = list(self.ddgs.images(query, max_results=8))
+            # Translate verbose DALL-E prompt into short SEO search query
+            try:
+                translation_res = self.openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "You convert verbose DALL-E image prompts into short, 2-4 word SEO search queries for Google Images. Reply ONLY with the short search query, no quotes, no punctuation."},
+                        {"role": "user", "content": query}
+                    ],
+                    max_tokens=15
+                )
+                seo_query = translation_res.choices[0].message.content.strip()
+                print(f"Translated DALL-E prompt to SEO query: '{seo_query}'")
+            except Exception as te:
+                print(f"Query translation failed: {te}")
+                seo_query = query[:50] # basic fallback
+                
+            # ENFORCE STRICT SAFESEARCH
+            results = list(self.ddgs.images(seo_query, safesearch='strict', max_results=8))
             if not results:
                 return ""
             
@@ -53,7 +73,7 @@ class ResearchAgent:
                                 "content": [
                                     {
                                         "type": "text", 
-                                        "text": f"You are a strict editorial image reviewer. The topic/context is '{query}'. Evaluate this image. Reject it if it is a generic abstract vector (like floating dots/nodes), irrelevant, or low quality. Reply with exactly YES if it's highly suitable and specific, or NO if it should be rejected."
+                                        "text": f"You are a strict editorial image reviewer and safety moderator. The topic/context is '{query}'. Evaluate this image. CRITICAL: Immediately reject any image containing NSFW content, nudity, violence, suggestive material, or inappropriate themes. Reject it if it is a generic abstract vector (like floating dots/nodes), irrelevant, or low quality. Reply with exactly YES if it's highly suitable, safe, and specific, or NO if it should be rejected."
                                     },
                                     {
                                         "type": "image_url", 
@@ -73,8 +93,10 @@ class ResearchAgent:
                     print(f"Vision eval failed for {img_url}: {e}")
                     continue
             
-            # Fallback if all rejected
-            return results[0].get('image', '')
+            # CRITICAL FIX: If ALL web images are rejected by Vision, DO NOT return the first unverified image.
+            # Returning "" forces the writer_agent to fallback to DALL-E 3 generation.
+            print(f"All {len(results)} web images were rejected by Vision. Falling back to DALL-E generation.")
+            return ""
         except Exception as e:
             print(f"Image search failed: {e}")
             return ""
