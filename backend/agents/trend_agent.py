@@ -50,10 +50,16 @@ class TrendAgent:
             ]
 
         # 3. Use Claude to pick the top 3
+        import datetime
+        current_date = datetime.date.today().isoformat()
         headlines_text = "\n".join([f"- {h}" for h in headlines])
         
         system_prompt = """You are an elite B2B Content Strategist for a software engineering agency.
 Your job is to read a list of raw, trending news headlines and select the TOP 3 that would make the best thought-leadership content for our target audience (CTOs, VPs of Engineering, Product Managers).
+
+CRITICAL RECENCY RULE:
+Today's date is """ + current_date + """. 
+You MUST strictly ignore any "hot topic" that peaked more than 6 months ago. Do not select topics that are stale or yesterday's news. Past topics/data are ONLY allowed if explicitly framed as a retrospective case study or a historical justification for a present problem.
 
 Criteria for selection:
 - Must be highly relevant to B2B software development, enterprise AI, cloud architecture, or engineering leadership.

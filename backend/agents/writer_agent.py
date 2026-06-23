@@ -17,7 +17,7 @@ class WriterAgent:
     def __init__(self):
         self.model_name = "claude-opus-4-7"
 
-    def generate_draft(self, topic: str, angle: str = "", icp_result: dict = None, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", db: Session = None) -> dict:
+    def generate_draft(self, topic: str, angle: str = "", icp_result: dict = None, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", pre_researched_context: str = "", db: Session = None) -> dict:
         """
         Generate multi-format content (Blog, LinkedIn, X thread) using LangChain ChatAnthropic.
         Loads all voice rules, approved stats, and format rules from memory layer first.
@@ -128,9 +128,12 @@ class WriterAgent:
 
         research_context = ""
         if use_web_search:
-            from agents.research_agent import ResearchAgent
-            research_agent = ResearchAgent()
-            search_results = research_agent.search_topic(topic)
+            if pre_researched_context:
+                search_results = pre_researched_context
+            else:
+                from agents.research_agent import ResearchAgent
+                research_agent = ResearchAgent()
+                search_results = research_agent.search_topic(topic)
             research_context = f"\n\n═══ LATEST RESEARCH CONTEXT ═══\nThe user has requested real-time factual grounding for this topic. Use the following real-time facts to ground your content, add specific details, and avoid writing generic statements:\n{search_results}\n"
 
         ai_learnings = ctx.get("ai_learnings", "")
@@ -175,14 +178,19 @@ You will produce THREE pieces of content for the same topic: a Blog Post, a Link
 {seo_rule}
 Service pages to link to: {buried_pages}
 
-═══ HALLUCINATION & STATS RULE ═══
-If you use statistics, you MUST either use highly relevant ones from the APPROVED STATS LIBRARY, or if none are relevant, you can use external stats but they MUST be tagged: [NEEDS HUMAN CHECK: describe what to verify]. DO NOT force irrelevant stats (e.g. healthcare stats in a consumer tech post). If no stat perfectly aligns, OMIT IT ENTIRELY.
+═══ HALLUCINATION & STATS RULE (CRITICAL FOR E-E-A-T) ═══
+If you use statistics, you MUST either use highly relevant ones from the APPROVED STATS LIBRARY, or if none are relevant, you can use external stats but they MUST be tagged with an explicit citation in the text (e.g., "(S&P Global Market Intelligence, 2025)"). If you do not know the exact source of a stat, you MUST wrap it in `[NEEDS HUMAN CHECK: Find source for X stat]`. DO NOT force irrelevant stats. Google and AI search engines penalize unsourced claims.
+
+═══ FIRST PERSON & BRAND VOICE RULE ═══
+1. You MUST use first-person voice ("we", "our", "us") exclusively throughout the body copy.
+2. You are forbidden from using the third-person name "Bitcot" in the main body paragraphs. 
+3. The word "Bitcot" is ONLY permitted in the H1, the "Why Bitcot" H2, and one specific closing CTA mention.
 
 ═══ TRUST SIGNALS & CREDIBILITY (CRITICAL) ═══
 You MUST include a strong section establishing credibility. Use exact statements like: "Our team has delivered 100+ mobile applications and worked with enterprise iOS architectures across healthcare, fintech, and SaaS platforms." Do not make claims about the future without grounding them in our past implementation experience.
 
 ═══ BLOG BODY STRUCTURE (CRITICAL) ═══
-You MUST format the "body" field of the blog exactly as follows to match our proven structure:
+You MUST format the "body" field of the blog exactly as follows to match our proven structure.
 1. **Key Takeaways**: Wrapped exactly like this:
 <div class="key-takeaways">
   <h2>Key Takeaways</h2>
@@ -191,29 +199,29 @@ You MUST format the "body" field of the blog exactly as follows to match our pro
     <li>Insight 2</li>
   </ul>
 </div>
-2. **Table of Contents**: A complete list of all the main topics covered in the blog post, wrapped exactly like this:
-<div class="table-of-contents">
-  <h2>Table of Contents</h2>
-  <ul>
-    <li><a href="#introduction">Introduction</a></li>
-    <li><a href="#industry-problem">Industry Problem</a></li>
-    <!-- List all H2 sections here -->
-  </ul>
-</div>
-3. **Introduction**: Create an urgent hook. Do NOT use generic openings.
-3. **Industry Problem**: Describe the friction and broken processes in the industry today.
-4. **Strategic Insight / POV**: Our contrarian angle and unique perspective.
-5. **What We Built & Tech Stack**: Dive deep into technical architecture.
-6. **Challenges and Solutions**: Real-world implementation details.
-7. **Business Impact & ROI**: Why executives should care.
-8. **Why Bitcot (CTA)**: Establish trust (100+ mobile apps delivered) with a strong conversional CTA.
-9. **Conclusion**: A definitive wrap-up wrapping the argument together.
-10. **FAQs**: Wrapped exactly like this at the very end:
+2. **Table of Contents**: A complete list of all the main topics covered.
+3. **Introduction**: Create an urgent, business-focused hook. Do NOT use generic openings.
+4. **Industry Problem & Market Demand**: Describe the friction and broken processes in the industry today, linking to high-level market demands.
+5. **Strategic Insight / POV**: Our contrarian angle and unique perspective.
+6. **Implementation Frameworks & Technical Architecture**: Dive deep into how to actually build and implement the solution. 
+   - **CRITICAL**: You MUST include at least ONE HTML `<table>` here (e.g. comparing On-Prem vs. API cost, or architectural trade-offs). Do NOT use `[IMAGE:...]` for data comparison; Answer Engines cannot read pixel graphs.
+7. **Real-World Case Studies / Past Delivery**: Focus on our past implementation experience.
+8. **Mid-Article CTA**: You MUST inject an explicit CTA block linking to our `/lets-talk/` page (e.g., `<p><strong>Ready to implement this? <a href="/lets-talk/">Let's talk about your architecture.</a></strong></p>`).
+9. **Challenges and Solutions**: Real-world implementation details.
+   - **CRITICAL**: Include a SECOND HTML `<table>` here (e.g. Feature Matrix or Risk Mitigation table). The blog MUST have at least 2 HTML tables total.
+10. **Business Impact & ROI**: Why executives should care. Include conversion assets (e.g., ROI calculators or assessment checklists).
+11. **Why Bitcot (Closing CTA)**: Establish trust (100+ mobile apps delivered) with a strong conversional CTA linking to `/lets-talk/`.
+12. **Conclusion**: A definitive wrap-up wrapping the argument together.
+13. **Expanded FAQs**: Wrapped exactly like this at the very end:
 <div class="faq-section">
   <h2>Frequently Asked Questions</h2>
   <h3>Question 1</h3>
   <p>Answer 1</p>
 </div>
+
+**LINKING RULES**:
+- You MUST inject at least 2-3 bolded, keyword-rich internal links (`<a href="..."><strong>...</strong></a>`) pointing to Bitcot service pages (from `{buried_pages}`).
+- You MUST inject at least 2-3 credible external citations to high-authority domains (e.g. Gartner, Forrester, GitHub, official documentation) via `<a>` tags.
 
 CRITICAL IMAGE INSTRUCTION: You MUST interleave EXACTLY 3 image placeholders throughout the body text (e.g. after H2 sections). Use this exact format:
 `[IMAGE: highly detailed prompt for an architectural diagram, cloud architecture data pipeline, or technical flowchart. Avoid generic AI people/robots.]`
@@ -223,8 +231,8 @@ DO NOT skip this. The blog MUST contain exactly 3 `[IMAGE: ...]` tags.
 Return ONLY valid JSON with this exact structure:
 {{
   "blog": {{
-    "title_tag": "< 60 chars, optimized for CTR and keywords",
-    "h1_title": "Engaging human-readable title",
+    "title_tag": "< 60 chars, MUST START WITH a high-volume SEO head term (e.g., 'Open-Source LLM for Enterprise') and end with the specific topic hook.",
+    "h1_title": "MUST START WITH a high-volume SEO head term, anchoring the title with actual search demand.",
     "url_slug": "keyword-dense-hyphenated-slug",
     "meta_description": "...",
     "body": "...",

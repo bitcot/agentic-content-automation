@@ -31,6 +31,7 @@ export default function ManualInputPanel({
   const [targetPersona, setTargetPersona] = useState("");
   const [authorVoice, setAuthorVoice] = useState("bitcot");
   const [useWebSearch, setUseWebSearch] = useState(false);
+  const [requireApproval, setRequireApproval] = useState(true);
   const [imageSource, setImageSource] = useState("ai");
   const [activePlatforms, setActivePlatforms] = useState(
     new Set(["LinkedIn", "X Thread", "Blog"])
@@ -384,7 +385,7 @@ export default function ManualInputPanel({
 
         {/* Web Search Toggle */}
         <div>
-          <label className="field-label">Real-Time Data</label>
+          <label className="field-label">Research & Approval</label>
           <div className="platform-toggle-group">
             <div className="platform-toggle">
               <input
@@ -395,6 +396,17 @@ export default function ManualInputPanel({
               />
               <label htmlFor="use-web-search" style={{ color: useWebSearch ? 'var(--accent)' : 'inherit' }}>
                 Enable Web Search (Fetch recent facts)
+              </label>
+            </div>
+            <div className="platform-toggle">
+              <input
+                type="checkbox"
+                id="require-approval"
+                checked={requireApproval}
+                onChange={(e) => setRequireApproval(e.target.checked)}
+              />
+              <label htmlFor="require-approval" style={{ color: requireApproval ? 'var(--accent)' : 'inherit' }}>
+                Require Research Approval Mid-Flight
               </label>
             </div>
           </div>
@@ -423,7 +435,7 @@ export default function ManualInputPanel({
           {!isLoading ? (
             <button
               className="btn btn-primary"
-              onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, useWebSearch, imageSource, platforms: [...activePlatforms] })}
+              onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, useWebSearch, requireApproval, imageSource, platforms: [...activePlatforms] })}
               disabled={!topic.trim()}
               style={{ padding: '12px 32px', fontSize: 12 }}
             >

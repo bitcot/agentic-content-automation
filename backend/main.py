@@ -39,8 +39,15 @@ class ConnectionManager:
         self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
+        dead_connections = []
         for connection in self.active_connections:
-            await connection.send_json(message)
+            try:
+                await connection.send_json(message)
+            except Exception:
+                dead_connections.append(connection)
+        
+        for dead in dead_connections:
+            self.disconnect(dead)
 
 manager = ConnectionManager()
 
@@ -101,6 +108,10 @@ class GenerateRequest(BaseModel):
     image_idea: str = ""
     use_web_search: bool = False
     image_source: str = "ai"
+
+class WriteContentRequest(GenerateRequest):
+    icp_result: dict = {}
+    research_context: str = ""
 
 @app.get("/")
 def read_root():
@@ -204,22 +215,42 @@ def get_content_history(
         ]
     }
 
-@app.post("/research")
-def research_agent(topic: str, db: Session = Depends(get_db)):
+@app.post("/research-plan")
+def research_plan_endpoint(request: GenerateRequest, db: Session = Depends(get_db)):
     """
-    Research Agent placeholder.
-    In the future, this will use APIs (PRAW, Google Trends, etc.) to gather context.
+    Phase 1 of Generation: Runs ICP scoring, SEO analysis, and Web Research.
+    Returns the research context so the user can approve it before writing.
     """
-    # Placeholder logic
-    research_data = {
-        "topic": topic,
-        "summary": f"Initial research findings for '{topic}' indicate high enterprise interest.",
-        "key_stats": ["70% of enterprises struggle with this.", "Adoption has increased 3x."],
-        "competitor_gaps": ["Lack of actionable implementation guides."]
-    }
+    from agents.icp_agent import ICPAgent
+    from agents.seo_agent import SEOAgent
+    from agents.research_agent import ResearchAgent
+
+    # 1. ICP
+    icp_agent = ICPAgent()
+    icp_result = icp_agent.score_topic(request.topic, angle=request.angle, target_persona=request.target_persona, db=db)
+    
+    score = icp_result.get("score", 0.0)
+    if score < 0.65 and not icp_result.get("reshape_suggestion"):
+        raise HTTPException(status_code=400, detail=f"Topic rejected by ICP Agent. Score: {score}")
+
+    # 2. SEO
+    seo_agent = SEOAgent()
+    try:
+        seo_data = seo_agent.analyze_topic(request.topic).model_dump()
+    except Exception:
+        seo_data = {}
+
+    # 3. Research (if enabled)
+    research_context = ""
+    if request.use_web_search:
+        research_agent = ResearchAgent()
+        research_context = research_agent.search_topic(request.topic)
+
     return {
         "status": "success",
-        "data": research_data
+        "icp_result": icp_result,
+        "seo_data": seo_data,
+        "research_context": research_context
     }
 
 @app.post("/enhance-topic")
@@ -243,55 +274,30 @@ def enhance_topic_endpoint(request: EnhanceRequest, db: Session = Depends(get_db
         "enhanced_image_idea": enhanced.get("enhanced_image_idea", "")
     }
 
-@app.post("/generate")
-def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
+@app.post("/write-content")
+def write_content_endpoint(request: WriteContentRequest, db: Session = Depends(get_db)):
     """
-    Chains ICP → SEO → Writer agents.
-    Both agents load brand context from the Supabase memory layer.
+    Phase 2 of Generation: Takes pre-approved research data and runs WriterAgent.
     """
-    from agents.graph import app_graph
-
-    # Initialize Graph State
-    initial_state = {
-        "topic": request.topic,
-        "angle": request.angle,
-        "target_persona": request.target_persona,
-        "tone": request.tone,
-        "author_voice": request.author_voice,
-        "image_idea": request.image_idea,
-        "use_web_search": request.use_web_search,
-        "image_source": request.image_source,
-        "db_session": db,
-        "icp_result": None,
-        "seo_data": None,
-        "draft": None,
-        "status": ""
-    }
-
-    # Execute LangGraph
-    final_state = app_graph.invoke(initial_state)
-
-    if final_state["status"] == "rejected":
-        icp_result = final_state.get("icp_result", {})
-        score = icp_result.get("score", 0.0)
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Topic rejected by ICP Agent. "
-                f"Score: {score:.2f}. "
-                f"Reason: {icp_result.get('reasoning', 'Does not match Bitcot ICP.')} "
-                f"Suggestion: {icp_result.get('reshape_suggestion', '')}"
-            )
-        )
-
-    draft = final_state["draft"]
-    score = final_state.get("icp_result", {}).get("score", 0.0)
-    decision = final_state.get("icp_result", {}).get("decision", "PASS")
-    icp_result = final_state.get("icp_result", {})
-
-
-    # Save to ContentLog (one row per generation run)
+    from agents.writer_agent import WriterAgent
     import json
+
+    writer_agent = WriterAgent()
+    draft = writer_agent.generate_draft(
+        topic=request.topic,
+        angle=request.angle,
+        icp_result=request.icp_result,
+        target_persona=request.target_persona,
+        tone=request.tone,
+        author_voice=request.author_voice,
+        image_idea=request.image_idea,
+        use_web_search=request.use_web_search,
+        image_source=request.image_source,
+        pre_researched_context=request.research_context,
+        db=db
+    )
+
+    score = request.icp_result.get("score", 0.0)
     blog_body = draft.get("blog", {}).get("body", "")
     needs_check = draft.get("needs_human_check", True)
 
@@ -301,7 +307,7 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
         platform="all",
         content=json.dumps(draft),
         status="pending_review",
-        needs_human_check=needs_check,
+        needs_human_check=needs_check
     )
     db.add(log)
     db.commit()
@@ -310,19 +316,13 @@ def generate_content(request: GenerateRequest, db: Session = Depends(get_db)):
     return {
         "status": "success",
         "content_id": log.id,
-        "icp": {
-            "score": score,
-            "decision": decision,
-            "persona_match": icp_result.get("persona_match"),
-            "reasoning": icp_result.get("reasoning"),
-        },
-        "topic": draft.get("topic"),
         "blog": draft.get("blog", {}),
         "linkedin": draft.get("linkedin", {}),
         "x_thread": draft.get("x_thread", {}),
         "needs_human_check": needs_check,
         "check_flags": draft.get("check_flags", []),
         "token_usage": draft.get("token_usage", {}),
+        "research_context": request.research_context,
     }
 
 @app.post("/generate/async")

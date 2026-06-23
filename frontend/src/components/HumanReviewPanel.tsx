@@ -64,7 +64,7 @@ export default function HumanReviewPanel({
   const icpPct   = (score * 100).toFixed(0);
   const approved = score >= 0.65;
 
-  const [activeTab, setActiveTab] = useState<'blog' | 'linkedin' | 'x'>('blog');
+  const [activeTab, setActiveTab] = useState<'blog' | 'linkedin' | 'x' | 'sources'>('blog');
   const [showRegen, setShowRegen] = useState(false);
   const [regenTarget, setRegenTarget] = useState('all');
   const [regenFeedback, setRegenFeedback] = useState('');
@@ -175,6 +175,7 @@ export default function HumanReviewPanel({
           { id: 'blog', label: 'Blog Post' },
           { id: 'linkedin', label: 'LinkedIn' },
           { id: 'x', label: 'X Thread' },
+          { id: 'sources', label: 'Research Sources' },
         ] as const).map(t => (
           <button
             key={t.id}
@@ -223,6 +224,7 @@ export default function HumanReviewPanel({
               document.head.appendChild(style);
 
               const html2pdf = (await import('html2pdf.js')).default;
+              // @ts-ignore
               html2pdf().set({
                 margin: 0.4,
                 filename: `${blog?.url_slug || 'blog'}.pdf`,
@@ -394,6 +396,12 @@ export default function HumanReviewPanel({
                 <span style={{ fontSize: 16, color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{xThread.dm_keyword}</span>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'sources' && (
+          <div style={{ background: 'rgba(255,255,255,0.02)', padding: '24px', border: 'var(--rule)', color: 'var(--paper)', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)' }}>
+            {draftData?.research_context || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>No specific web research was requested or returned for this generation.</span>}
           </div>
         )}
       </div>

@@ -14,6 +14,9 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [agentLogs, setAgentLogs] = useState<any[]>([]);
+  const [researchPlan, setResearchPlan] = useState<any>(null);
+  const [showResearchModal, setShowResearchModal] = useState(false);
+  const [currentRequestData, setCurrentRequestData] = useState<any>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -43,7 +46,7 @@ export default function Home() {
       };
 
       ws.onerror = (e) => {
-        console.error("WS Error:", e);
+        // Suppressed console.error to prevent Next.js error overlay during backend reloads
         ws.close(); // Trigger onclose to reconnect
       };
     };
@@ -71,12 +74,15 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     setAgentLogs([]);
+    setCurrentRequestData(data);
     
     abortControllerRef.current = new AbortController();
     
     try {
       const backendUrl = `http://${window.location.hostname}:8000`;
-      const res = await fetch(`${backendUrl}/generate`, {
+      
+      // STEP 1: Research Plan
+      const res = await fetch(`${backendUrl}/research-plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: abortControllerRef.current.signal,
@@ -92,17 +98,65 @@ export default function Home() {
         }),
       });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.detail || 'Generation failed');
-      setDraftData(result);
+      if (!res.ok) throw new Error(result.detail || 'Research phase failed');
+      
+      if (data.requireApproval) {
+        setResearchPlan(result);
+        setShowResearchModal(true);
+        setIsLoading(false); // Pause loading while waiting for approval
+      } else {
+        // Auto-approve and continue
+        await executeWriteContent(data, result.icp_result, result.research_context);
+      }
     } catch (err: any) {
       if (err.name === 'AbortError') {
         console.log("Generation aborted");
       } else {
         setError(err.message);
       }
+      setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const executeWriteContent = async (data: any, icp_result: any, research_context: string) => {
+    setIsLoading(true);
+    try {
+      const backendUrl = `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${backendUrl}/write-content`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: abortControllerRef.current?.signal,
+        body: JSON.stringify({ 
+          topic: data.topic, 
+          angle: data.angle, 
+          target_persona: data.targetPersona,
+          tone: data.tone,
+          author_voice: data.authorVoice,
+          image_idea: data.imageIdea,
+          use_web_search: data.useWebSearch,
+          image_source: data.imageSource,
+          icp_result: icp_result,
+          research_context: research_context
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.detail || 'Generation failed');
+      setDraftData(result.draft);
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setError(err.message);
+      }
     } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
+    }
+  };
+
+  const handleApproveResearch = () => {
+    setShowResearchModal(false);
+    if (currentRequestData && researchPlan) {
+      executeWriteContent(currentRequestData, researchPlan.icp_result, researchPlan.research_context);
     }
   };
 
@@ -273,7 +327,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Main content ─────────────────────────────────────────── */}
+      {/* Main content */}
       <main>
         {tab === 'generate' ? (
           !draftData ? (
@@ -292,6 +346,44 @@ export default function Home() {
           <AnalyticsDashboard />
         )}
       </main>
+
+      {/* Research Approval Modal */}
+      {showResearchModal && researchPlan && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, backdropFilter: 'blur(4px)', padding: 20
+        }}>
+          <div style={{
+            background: 'var(--bg)', border: '1px solid var(--border)',
+            padding: '30px', maxWidth: 600, width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+          }}>
+            <h2 style={{ fontSize: 16, marginBottom: 10, color: 'var(--accent)' }}>Mid-Flight Research Approval Required</h2>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
+              The agent proposes the following topic and data. Do you approve this direction?
+            </p>
+            
+            <div style={{
+              background: '#0a0a0a', padding: 15, border: '1px solid rgba(255,255,255,0.1)',
+              fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--paper)',
+              maxHeight: 300, overflowY: 'auto', marginBottom: 20, whiteSpace: 'pre-wrap'
+            }}>
+              {researchPlan.research_context ? researchPlan.research_context : "No web research data fetched. Continuing with internal knowledge."}
+            </div>
+
+            <div style={{ display: 'flex', gap: 15, justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={() => setShowResearchModal(false)} style={{ fontSize: 12 }}>
+                Reject & Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleApproveResearch} style={{ fontSize: 12 }}>
+                Approve & Write Content
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

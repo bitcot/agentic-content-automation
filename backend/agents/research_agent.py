@@ -13,18 +13,24 @@ class ResearchAgent:
         Searches the web for a topic and returns a compiled context string
         of the top results to be injected into an LLM prompt.
         """
+        import datetime
+        current_date = datetime.date.today().isoformat()
         emit_agent_log("ResearchAgent", f"Searching web for: '{query}'", {"query": query})
         try:
-            results = list(self.ddgs.text(query, max_results=max_results))
+            results = list(self.ddgs.text(query, max_results=max_results, timelimit='y'))
             if not results:
                 return "No real-time search results found."
 
-            context = "Here are the top real-time search results to provide factual grounding:\n\n"
+            context = f"CRITICAL RECENCY RULE: Today's date is {current_date}. STRICTLY ignore 'hot trends' that peaked over 6 months ago. Past data is ONLY permitted to justify present challenges or as historical case studies.\n\n"
+            context += "Here are the top real-time search results to provide factual grounding:\n\n"
+            
             for i, res in enumerate(results):
+                source_url = res.get('href', 'No URL')
+                emit_agent_log("ResearchAgent", f"Analyzing source: {source_url}")
                 context += f"Result {i + 1}:\n"
                 context += f"Title: {res.get('title', 'No Title')}\n"
                 context += f"Body/Snippet: {res.get('body', 'No snippet')}\n"
-                context += f"Source URL: {res.get('href', 'No URL')}\n\n"
+                context += f"Source URL: {source_url}\n\n"
             
             return context
         except Exception as e:
