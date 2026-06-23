@@ -17,6 +17,7 @@ export default function Home() {
   const [researchPlan, setResearchPlan] = useState<any>(null);
   const [showResearchModal, setShowResearchModal] = useState(false);
   const [currentRequestData, setCurrentRequestData] = useState<any>(null);
+  const [selectedSources, setSelectedSources] = useState<number[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -102,11 +103,25 @@ export default function Home() {
       
       if (data.requireApproval) {
         setResearchPlan(result);
+        if (result.research_context && result.research_context.sources) {
+          setSelectedSources(result.research_context.sources.map((_: any, i: number) => i));
+        } else {
+          setSelectedSources([]);
+        }
         setShowResearchModal(true);
         setIsLoading(false); // Pause loading while waiting for approval
       } else {
         // Auto-approve and continue
-        await executeWriteContent(data, result.icp_result, result.research_context);
+        let autoContextStr = "";
+        if (typeof result.research_context === 'object' && result.research_context.sources) {
+           autoContextStr = result.research_context.header || "";
+           result.research_context.sources.forEach((src: any, i: number) => {
+               autoContextStr += `Result ${i + 1}:\nTitle: ${src.title}\nBody/Snippet: ${src.body}\nSource URL: ${src.url}\n\n`;
+           });
+        } else {
+           autoContextStr = result.research_context || "";
+        }
+        await executeWriteContent(data, result.icp_result, autoContextStr);
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -156,8 +171,25 @@ export default function Home() {
   const handleApproveResearch = () => {
     setShowResearchModal(false);
     if (currentRequestData && researchPlan) {
-      executeWriteContent(currentRequestData, researchPlan.icp_result, researchPlan.research_context);
+      let finalContextStr = "";
+      if (typeof researchPlan.research_context === 'object' && researchPlan.research_context.sources) {
+         finalContextStr = researchPlan.research_context.header || "";
+         researchPlan.research_context.sources.forEach((src: any, i: number) => {
+            if (selectedSources.includes(i)) {
+                finalContextStr += `Result ${i + 1}:\nTitle: ${src.title}\nBody/Snippet: ${src.body}\nSource URL: ${src.url}\n\n`;
+            }
+         });
+      } else {
+         finalContextStr = researchPlan.research_context || "";
+      }
+      executeWriteContent(currentRequestData, researchPlan.icp_result, finalContextStr);
     }
+  };
+
+  const toggleSource = (index: number) => {
+    setSelectedSources(prev => 
+      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+    );
   };
 
   const handleViewHistory = async (id: number) => {
@@ -368,9 +400,32 @@ export default function Home() {
             <div style={{
               background: '#0a0a0a', padding: 15, border: '1px solid rgba(255,255,255,0.1)',
               fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--paper)',
-              maxHeight: 300, overflowY: 'auto', marginBottom: 20, whiteSpace: 'pre-wrap'
+              maxHeight: 400, overflowY: 'auto', marginBottom: 20
             }}>
-              {researchPlan.research_context ? researchPlan.research_context : "No web research data fetched. Continuing with internal knowledge."}
+              {researchPlan.research_context && typeof researchPlan.research_context === 'object' && researchPlan.research_context.sources ? (
+                 <div>
+                   <p style={{ whiteSpace: 'pre-wrap', marginBottom: 16 }}>{researchPlan.research_context.header}</p>
+                   {researchPlan.research_context.sources.length > 0 ? researchPlan.research_context.sources.map((src: any, i: number) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 16 }}>
+                         <input 
+                           type="checkbox" 
+                           checked={selectedSources.includes(i)} 
+                           onChange={() => toggleSource(i)} 
+                           style={{ marginTop: 2, accentColor: 'var(--accent)' }}
+                         />
+                         <div style={{ flex: 1 }}>
+                            <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--paper)', fontSize: 12 }}>{src.title}</p>
+                            <a href={src.url} target="_blank" style={{ color: 'var(--accent)', textDecoration: 'none', display: 'block', marginBottom: 6, fontSize: 10, wordBreak: 'break-all' }}>{src.url}</a>
+                            <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.5 }}>{src.body}</p>
+                         </div>
+                      </div>
+                   )) : <p style={{ color: 'var(--muted)' }}>No web search data fetched. Continuing with internal knowledge.</p>}
+                 </div>
+              ) : (
+                 <div style={{ whiteSpace: 'pre-wrap' }}>
+                   {researchPlan.research_context || "No web search data fetched. Continuing with internal knowledge."}
+                 </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: 15, justifyContent: 'flex-end' }}>
