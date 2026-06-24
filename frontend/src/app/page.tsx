@@ -157,7 +157,7 @@ export default function Home() {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.detail || 'Generation failed');
-      setDraftData(result.draft);
+      setDraftData(result);
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         setError(err.message);

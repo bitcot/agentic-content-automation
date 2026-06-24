@@ -151,11 +151,18 @@ def discover_trends():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    try:
+        await manager.connect(websocket)
+    except Exception as e:
+        print(f"Failed to connect: {e}")
+        return
     try:
         while True:
             data = await websocket.receive_text()
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        print(f"WS error: {e}")
         manager.disconnect(websocket)
 
 @app.post("/trigger")
