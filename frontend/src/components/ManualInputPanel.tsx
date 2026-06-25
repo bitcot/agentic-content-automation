@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
 
 const tones = [
@@ -48,6 +48,56 @@ export default function ManualInputPanel({
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [trends, setTrends] = useState<any[]>([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
+  
+  const [customVoices, setCustomVoices] = useState<string[]>([]);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [newVoiceName, setNewVoiceName] = useState("");
+  const [newVoiceSample, setNewVoiceSample] = useState("");
+  const [isCloning, setIsCloning] = useState(false);
+
+  useEffect(() => {
+    const fetchVoices = async () => {
+      try {
+        const backendUrl = `http://${window.location.hostname}:8000`;
+        const res = await fetch(`${backendUrl}/voices`);
+        const data = await res.json();
+        if (data.status === 'success') {
+          setCustomVoices(data.voices);
+        }
+      } catch (err) {
+        console.error("Failed to fetch voices:", err);
+      }
+    };
+    fetchVoices();
+  }, []);
+
+  const handleCloneVoice = async () => {
+    if (!newVoiceName || !newVoiceSample) return;
+    setIsCloning(true);
+    try {
+      const backendUrl = `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${backendUrl}/clone-voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sample_text: newVoiceSample,
+          persona_name: newVoiceName
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setCustomVoices(prev => [...prev, data.persona]);
+        setAuthorVoice(data.persona);
+        setShowVoiceModal(false);
+        setNewVoiceName("");
+        setNewVoiceSample("");
+      }
+    } catch (err) {
+      console.error("Failed to clone voice:", err);
+    } finally {
+      setIsCloning(false);
+    }
+  };
 
   const { isListening, activeField, startListening, hasSupport } = useVoiceRecognition();
 
@@ -358,7 +408,27 @@ export default function ManualInputPanel({
 
         {/* Author Voice row */}
         <div>
-          <label className="field-label">Author Voice</label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 }}>
+            <label className="field-label" style={{ marginBottom: 0 }}>Author Voice</label>
+            <button 
+              onClick={() => setShowVoiceModal(true)} 
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(200,255,0,0.3)',
+                color: 'var(--accent)',
+                fontSize: 10,
+                padding: '4px 8px',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                transition: 'all 0.2s'
+              }}
+            >
+              + Clone Voice
+            </button>
+          </div>
           <div className="platform-toggle-group">
             <div className="platform-toggle">
               <input
@@ -370,16 +440,18 @@ export default function ManualInputPanel({
               />
               <label htmlFor="voice-bitcot">Bitcot Brand</label>
             </div>
-            <div className="platform-toggle">
-              <input
-                type="radio"
-                id="voice-raj"
-                name="authorVoice"
-                checked={authorVoice === "raj"}
-                onChange={() => setAuthorVoice("raj")}
-              />
-              <label htmlFor="voice-raj">Raj Sanghvi (CEO)</label>
-            </div>
+            {customVoices.map(voice => (
+              <div className="platform-toggle" key={voice}>
+                <input
+                  type="radio"
+                  id={`voice-${voice}`}
+                  name="authorVoice"
+                  checked={authorVoice === voice}
+                  onChange={() => setAuthorVoice(voice)}
+                />
+                <label htmlFor={`voice-${voice}`}>{voice}</label>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -486,7 +558,68 @@ export default function ManualInputPanel({
             </div>
           )}
         </div>
+        </div>
       </div>
+
+      {showVoiceModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          backdropFilter: 'blur(5px)'
+        }}>
+          <div style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            padding: 30,
+            borderRadius: 8,
+            width: 500,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 20
+          }}>
+            <h3 style={{ margin: 0, color: 'var(--accent)' }}>Clone Voice Persona</h3>
+            <div>
+              <label className="field-label">Persona Name</label>
+              <input 
+                type="text" 
+                placeholder="e.g. Raj Sanghvi" 
+                value={newVoiceName}
+                onChange={e => setNewVoiceName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="field-label">Writing Sample (Paste past LinkedIn posts or articles)</label>
+              <textarea 
+                style={{ height: 150 }}
+                placeholder="Paste at least 150 words of their best writing..."
+                value={newVoiceSample}
+                onChange={e => setNewVoiceSample(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button 
+                className="secondary-btn" 
+                onClick={() => setShowVoiceModal(false)}
+                disabled={isCloning}
+              >
+                Cancel
+              </button>
+              <button 
+                className="action-btn" 
+                onClick={handleCloneVoice}
+                disabled={isCloning || !newVoiceName || !newVoiceSample}
+              >
+                {isCloning ? 'Cloning...' : 'Extract Voice DNA ✨'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

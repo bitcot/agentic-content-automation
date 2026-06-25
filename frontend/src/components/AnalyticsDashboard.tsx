@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const BASELINE = {
   linkedin_engagement_rate: 1.82,
@@ -70,6 +71,29 @@ export default function AnalyticsDashboard() {
           <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--paper)', background: 'var(--bg-lighter)', padding: 16, borderRadius: 4, lineHeight: 1.6 }}>
             {data.ai_learnings}
           </pre>
+        </div>
+      )}
+
+      {/* Engagement Trend Chart */}
+      {data.time_series && data.time_series.length > 0 && (
+        <div style={{ padding: '32px 40px', borderBottom: 'var(--rule)' }}>
+          <h3 style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            Engagement Over Time
+          </h3>
+          <div style={{ width: '100%', height: 250 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.time_series}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="date" stroke="var(--muted)" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--muted)" fontSize={11} tickLine={false} axisLine={false} unit="%" />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12 }}
+                  itemStyle={{ color: 'var(--accent)' }}
+                />
+                <Line type="monotone" dataKey="engagement" stroke="var(--accent)" strokeWidth={2} dot={{ r: 4, fill: 'var(--accent)' }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 

@@ -90,6 +90,11 @@ class WriterAgent:
                 ctx.get("voice_rule_9_x_threads", ""),
                 ctx.get("voice_rule_10_linkedin_url", ""),
             ])
+            
+        if author_voice and author_voice.lower() != "bitcot":
+            custom_voice = ctx.get(f"voice_persona_{author_voice.lower()}", "")
+            if custom_voice:
+                voice_rules = f"=== CUSTOM AUTHOR VOICE: {author_voice.upper()} ===\nThe user has requested you ghostwrite using this EXACT persona instead of the default. MUST FOLLOW THESE STYLISTIC RULES:\n{custom_voice}"
 
         # Build hook patterns block
         hook_patterns = "\n".join([

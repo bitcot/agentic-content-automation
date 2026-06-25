@@ -11,6 +11,7 @@ class AnalyticsMetrics(BaseModel):
     x_bookmark_rate: float
     top_performers: list
     under_performers: list
+    time_series: list
 
 class AnalyticsAgent:
     def __init__(self):
@@ -21,20 +22,60 @@ class AnalyticsAgent:
 
     def get_metrics(self) -> AnalyticsMetrics:
         """
-        Fetches metrics from GA4, LinkedIn, X APIs and analyzes them.
+        Fetches metrics from the database instead of hardcoding.
         """
-        # Fallback / Mock logic when APIs aren't set
-        return AnalyticsMetrics(
-            linkedin_engagement_rate=1.82,
-            form_conversion_rate=0.26,
-            x_bookmark_rate=2.1,
-            top_performers=[
-                {"id": 101, "topic": "Healthcare AI Infra", "engagement": 4.61, "conversion": 1.2}
-            ],
-            under_performers=[
-                {"id": 102, "topic": "Generic cost warning", "engagement": 0.9, "conversion": 0.1}
-            ]
-        )
+        db = SessionLocal()
+        try:
+            metrics = db.query(models.PerformanceMetric, models.ContentLog).join(
+                models.ContentLog, models.PerformanceMetric.content_id == models.ContentLog.id
+            ).all()
+
+            if not metrics:
+                return AnalyticsMetrics(
+                    linkedin_engagement_rate=0.0,
+                    form_conversion_rate=0.0,
+                    x_bookmark_rate=0.0,
+                    top_performers=[],
+                    under_performers=[]
+                )
+
+            total_eng = sum(m[0].engagement_rate for m in metrics)
+            total_conv = sum(m[0].conversions for m in metrics) / max(sum(m[0].clicks for m in metrics), 1) * 100
+            
+            avg_eng = total_eng / len(metrics)
+            avg_conv = total_conv / len(metrics)
+            
+            sorted_metrics = sorted(metrics, key=lambda x: x[0].engagement_rate, reverse=True)
+            top = sorted_metrics[:3]
+            bottom = sorted_metrics[-3:] if len(sorted_metrics) >= 6 else sorted_metrics[len(top):]
+
+            def format_list(metric_list):
+                return [
+                    {
+                        "id": pm.content_id, 
+                        "topic": cl.topic, 
+                        "engagement": pm.engagement_rate, 
+                        "conversion": pm.conversions,
+                        "date": pm.recorded_at.isoformat()
+                    } 
+                    for pm, cl in metric_list
+                ]
+
+            time_series = sorted([
+                {"date": pm.recorded_at.strftime("%b %d"), "engagement": pm.engagement_rate}
+                for pm, cl in metrics
+            ], key=lambda x: x["date"])
+
+            return AnalyticsMetrics(
+                linkedin_engagement_rate=round(avg_eng, 2),
+                form_conversion_rate=round(avg_conv, 2),
+                x_bookmark_rate=2.1, # Mock for now
+                top_performers=format_list(top),
+                under_performers=format_list(bottom),
+                time_series=time_series
+            )
+        finally:
+            db.close()
 
     def run_learning_loop(self) -> str:
         db = SessionLocal()

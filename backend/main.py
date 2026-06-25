@@ -113,6 +113,10 @@ class WriteContentRequest(GenerateRequest):
     icp_result: dict = {}
     research_context: str = ""
 
+class CloneVoiceRequest(BaseModel):
+    sample_text: str
+    persona_name: str
+
 @app.get("/")
 def read_root():
     return {"status": "Bitcot Content OS Active"}
@@ -438,6 +442,7 @@ def get_analytics(db: Session = Depends(get_db)):
         "x_bookmark_rate": metrics.x_bookmark_rate,
         "top_performers": metrics.top_performers,
         "under_performers": metrics.under_performers,
+        "time_series": metrics.time_series,
         "ai_learnings": learnings
     }
 
@@ -449,6 +454,24 @@ def trigger_learning_loop():
         return {"status": "success", "rulebook": rulebook}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/clone-voice")
+def clone_voice_endpoint(request: CloneVoiceRequest, db: Session = Depends(get_db)):
+    from agents.voice_agent import VoiceAgent
+    agent = VoiceAgent()
+    try:
+        rulebook = agent.clone_voice(request.sample_text, request.persona_name)
+        return {"status": "success", "persona": request.persona_name, "rulebook": rulebook}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/voices")
+def get_custom_voices(db: Session = Depends(get_db)):
+    """Returns list of custom voice personas cloned so far"""
+    voices = db.query(models.BrandContext).filter(models.BrandContext.key.like("voice_persona_%")).all()
+    # Extract names from keys: "voice_persona_mouriyan" -> "mouriyan"
+    voice_names = [v.key.replace("voice_persona_", "") for v in voices]
+    return {"status": "success", "voices": voice_names}
 
 @app.get("/history/{content_id}")
 def get_history_item(content_id: int, db: Session = Depends(get_db)):
