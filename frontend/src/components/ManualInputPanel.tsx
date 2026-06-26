@@ -558,68 +558,68 @@ export default function ManualInputPanel({
             </div>
           )}
         </div>
-        </div>
-      </div>
-
-      {showVoiceModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          backdropFilter: 'blur(5px)'
-        }}>
+        
+        {showVoiceModal && (
           <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            padding: 30,
-            borderRadius: 8,
-            width: 500,
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.8)',
             display: 'flex',
-            flexDirection: 'column',
-            gap: 20
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            backdropFilter: 'blur(5px)'
           }}>
-            <h3 style={{ margin: 0, color: 'var(--accent)' }}>Clone Voice Persona</h3>
-            <div>
-              <label className="field-label">Persona Name</label>
-              <input 
-                type="text" 
-                placeholder="e.g. Raj Sanghvi" 
-                value={newVoiceName}
-                onChange={e => setNewVoiceName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="field-label">Writing Sample (Paste past LinkedIn posts or articles)</label>
-              <textarea 
-                style={{ height: 150 }}
-                placeholder="Paste at least 150 words of their best writing..."
-                value={newVoiceSample}
-                onChange={e => setNewVoiceSample(e.target.value)}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button 
-                className="secondary-btn" 
-                onClick={() => setShowVoiceModal(false)}
-                disabled={isCloning}
-              >
-                Cancel
-              </button>
-              <button 
-                className="action-btn" 
-                onClick={handleCloneVoice}
-                disabled={isCloning || !newVoiceName || !newVoiceSample}
-              >
-                {isCloning ? 'Cloning...' : 'Extract Voice DNA ✨'}
-              </button>
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              padding: 30,
+              borderRadius: 8,
+              width: 500,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 20
+            }}>
+              <h3 style={{ margin: 0, color: 'var(--accent)' }}>Clone Voice Persona</h3>
+              <div>
+                <label className="field-label">Persona Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Raj Sanghvi" 
+                  value={newVoiceName}
+                  onChange={e => setNewVoiceName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="field-label">Writing Sample (Paste past LinkedIn posts or articles)</label>
+                <textarea 
+                  style={{ height: 150 }}
+                  placeholder="Paste at least 150 words of their best writing..."
+                  value={newVoiceSample}
+                  onChange={e => setNewVoiceSample(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button 
+                  className="secondary-btn" 
+                  onClick={() => setShowVoiceModal(false)}
+                  disabled={isCloning}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="action-btn" 
+                  onClick={handleCloneVoice}
+                  disabled={isCloning || !newVoiceName || !newVoiceSample}
+                >
+                  {isCloning ? 'Cloning...' : 'Extract Voice DNA ✨'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+      </div>
     </div>
   );
 }
