@@ -83,6 +83,7 @@ def writer_node(state: ContentState) -> dict:
         image_idea=state["image_idea"],
         use_web_search=state["use_web_search"],
         image_source=state["image_source"],
+        ab_test_hooks=state.get("ab_test_hooks", False),
         db=state["db_session"]
     )
     

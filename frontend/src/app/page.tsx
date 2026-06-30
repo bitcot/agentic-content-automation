@@ -95,7 +95,8 @@ export default function Home() {
           author_voice: data.authorVoice,
           image_idea: data.imageIdea,
           use_web_search: data.useWebSearch,
-          image_source: data.imageSource
+          image_source: data.imageSource,
+          ab_test_hooks: data.abTestHooks
         }),
       });
       const result = await res.json();
@@ -151,6 +152,7 @@ export default function Home() {
           image_idea: data.imageIdea,
           use_web_search: data.useWebSearch,
           image_source: data.imageSource,
+          ab_test_hooks: data.abTestHooks,
           icp_result: icp_result,
           research_context: research_context
         }),

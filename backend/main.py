@@ -108,6 +108,7 @@ class GenerateRequest(BaseModel):
     image_idea: str = ""
     use_web_search: bool = False
     image_source: str = "ai"
+    ab_test_hooks: bool = False
 
 class WriteContentRequest(GenerateRequest):
     icp_result: dict = {}
@@ -117,9 +118,22 @@ class CloneVoiceRequest(BaseModel):
     sample_text: str
     persona_name: str
 
+class RepurposeRequest(BaseModel):
+    source_url: str = ""
+    source_text: str = ""
+
 @app.get("/")
 def read_root():
     return {"status": "Bitcot Content OS Active"}
+
+@app.post("/repurpose")
+def repurpose_content(req: RepurposeRequest):
+    from agents.repurposing_agent import RepurposingAgent
+    agent = RepurposingAgent()
+    result = agent.repurpose(source_text=req.source_text, source_url=req.source_url)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
 
 @app.get("/proxy-image")
 def proxy_image(url: str):
@@ -134,19 +148,19 @@ def proxy_image(url: str):
         raise HTTPException(status_code=400, detail="Failed to fetch image")
 
 @app.get("/discover-trends")
-def discover_trends():
-    """Fetches trending topics from HN/DDG and scores them, caching for 30 minutes."""
+def discover_trends(competitor_url: str = None):
+    """Fetches trending topics from HN/DDG and scores them, caching for 30 minutes. Or analyzes competitor_url."""
     global TREND_CACHE
     now = time.time()
     
     # Cache for 30 minutes (1800 seconds)
-    if TREND_CACHE["data"] is not None and (now - TREND_CACHE["timestamp"]) < 1800:
+    if not competitor_url and TREND_CACHE["data"] is not None and (now - TREND_CACHE["timestamp"]) < 1800:
         return {"trends": TREND_CACHE["data"], "cached": True}
         
     try:
         agent = TrendAgent()
-        trends = agent.discover_trends()
-        if trends:
+        trends = agent.discover_trends(competitor_url)
+        if trends and not competitor_url:
             TREND_CACHE["data"] = trends
             TREND_CACHE["timestamp"] = now
         return {"trends": trends, "cached": False}
@@ -305,6 +319,7 @@ def write_content_endpoint(request: WriteContentRequest, db: Session = Depends(g
         use_web_search=request.use_web_search,
         image_source=request.image_source,
         pre_researched_context=request.research_context,
+        ab_test_hooks=request.ab_test_hooks,
         db=db
     )
 

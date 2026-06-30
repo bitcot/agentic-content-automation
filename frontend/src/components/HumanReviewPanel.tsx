@@ -370,6 +370,20 @@ export default function HumanReviewPanel({
                 </a>
               </div>
             )}
+            {linkedin.hooks && linkedin.hooks.length > 0 && (
+              <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(200,255,0,0.03)', border: '1px solid rgba(200,255,0,0.2)' }}>
+                <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--accent)', display: 'block', marginBottom: 12 }}>A/B Test Hooks Generated</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {linkedin.hooks.map((h: string, i: number) => (
+                    <div key={i} style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13, color: 'var(--paper)', lineHeight: 1.5 }}>
+                      <strong style={{ color: 'var(--accent)', marginRight: 8 }}>Option {i+1}:</strong> 
+                      {h}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div 
               className="draft-area rendered-markdown" 
               dangerouslySetInnerHTML={renderMarkdown(linkedin.post || '—')} 

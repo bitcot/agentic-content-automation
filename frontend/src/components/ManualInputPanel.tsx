@@ -32,6 +32,7 @@ export default function ManualInputPanel({
   const [authorVoice, setAuthorVoice] = useState("bitcot");
   const [useWebSearch, setUseWebSearch] = useState(false);
   const [requireApproval, setRequireApproval] = useState(true);
+  const [abTestHooks, setAbTestHooks] = useState(false);
   const [imageSource, setImageSource] = useState("ai");
   const [activePlatforms, setActivePlatforms] = useState(
     new Set(["LinkedIn", "X Thread", "Blog"])
@@ -54,6 +55,12 @@ export default function ManualInputPanel({
   const [newVoiceName, setNewVoiceName] = useState("");
   const [newVoiceSample, setNewVoiceSample] = useState("");
   const [isCloning, setIsCloning] = useState(false);
+
+  const [repurposeUrl, setRepurposeUrl] = useState("");
+  const [isRepurposing, setIsRepurposing] = useState(false);
+  const [repurposedResult, setRepurposedResult] = useState<any>(null);
+  
+  const [competitorUrl, setCompetitorUrl] = useState("");
 
   useEffect(() => {
     const fetchVoices = async () => {
@@ -146,7 +153,8 @@ export default function ManualInputPanel({
     setIsDiscovering(true);
     try {
       const backendUrl = `http://${window.location.hostname}:8000`;
-      const res = await fetch(`${backendUrl}/discover-trends`);
+      const url = competitorUrl ? `${backendUrl}/discover-trends?competitor_url=${encodeURIComponent(competitorUrl)}` : `${backendUrl}/discover-trends`;
+      const res = await fetch(url);
       const data = await res.json();
       setTrends(data.trends || []);
     } catch (err) {
@@ -181,6 +189,26 @@ export default function ManualInputPanel({
     }
   };
 
+  const handleRepurpose = async () => {
+    if (!repurposeUrl.trim()) return;
+    setIsRepurposing(true);
+    setRepurposedResult(null);
+    try {
+      const backendUrl = `http://${window.location.hostname}:8000`;
+      const res = await fetch(`${backendUrl}/repurpose`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_url: repurposeUrl })
+      });
+      const data = await res.json();
+      setRepurposedResult(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsRepurposing(false);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 680, margin: '60px auto 0', animation: 'fadeUp 0.4s ease' }}>
 
@@ -204,14 +232,51 @@ export default function ManualInputPanel({
       </div>
 
       <div style={{ marginBottom: 40, borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+          <input
+            type="text"
+            placeholder="[Optional] Enter Competitor URL for Counter-Narratives..."
+            value={competitorUrl}
+            onChange={e => setCompetitorUrl(e.target.value)}
+            style={{ flex: 1 }}
+          />
+        </div>
         <button 
           onClick={handleDiscover} 
           disabled={isDiscovering}
           className="btn" 
-          style={{ width: '100%', background: 'rgba(200,255,0,0.05)', borderColor: 'rgba(200,255,0,0.3)', color: 'var(--accent)' }}
+          style={{ width: '100%', background: 'rgba(200,255,0,0.05)', borderColor: 'rgba(200,255,0,0.3)', color: 'var(--accent)', marginBottom: 12 }}
         >
-          {isDiscovering ? 'Scraping HackerNews & Web...' : '✨ Discover Trending Topics (Mode A)'}
+          {isDiscovering ? 'Analyzing...' : '✨ Discover Trending Topics (Mode A)'}
         </button>
+
+        <div style={{ padding: 16, border: '1px solid rgba(255,184,0,0.3)', background: 'rgba(255,184,0,0.05)', borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--amber)' }}>Mode C — Repurpose Asset</span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input
+              type="text"
+              placeholder="Paste Blog URL or YouTube Transcript URL..."
+              value={repurposeUrl}
+              onChange={e => setRepurposeUrl(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button 
+              className="action-btn"
+              onClick={handleRepurpose}
+              disabled={isRepurposing || !repurposeUrl}
+              style={{ background: 'var(--amber)', color: '#000', borderColor: 'var(--amber)' }}
+            >
+              {isRepurposing ? 'Extracting...' : 'Repurpose'}
+            </button>
+          </div>
+          {repurposedResult && (
+            <div style={{ marginTop: 12, fontSize: 12, color: 'var(--paper)', maxHeight: 300, overflowY: 'auto' }}>
+              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                {JSON.stringify(repurposedResult, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
 
         {trends.length > 0 && (
           <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -481,6 +546,17 @@ export default function ManualInputPanel({
                 Require Research Approval Mid-Flight
               </label>
             </div>
+            <div className="platform-toggle">
+              <input
+                type="checkbox"
+                id="ab-test-hooks"
+                checked={abTestHooks}
+                onChange={(e) => setAbTestHooks(e.target.checked)}
+              />
+              <label htmlFor="ab-test-hooks" style={{ color: abTestHooks ? 'var(--accent)' : 'inherit' }}>
+                A/B Test Hooks (Generate 3 variations)
+              </label>
+            </div>
           </div>
         </div>
 
@@ -507,7 +583,7 @@ export default function ManualInputPanel({
           {!isLoading ? (
             <button
               className="btn btn-primary"
-              onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, useWebSearch, requireApproval, imageSource, platforms: [...activePlatforms] })}
+              onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, useWebSearch, requireApproval, abTestHooks, imageSource, platforms: [...activePlatforms] })}
               disabled={!topic.trim()}
               style={{ padding: '12px 32px', fontSize: 12 }}
             >

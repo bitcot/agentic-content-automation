@@ -12,19 +12,22 @@
 
 ## ✨ Core Features
 
-*   **🧠 Multi-Agent Architecture:** A chained pipeline of specialized AI agents (ICP, Trend, Writer, Regenerate, Research) powered by Anthropic's Claude 3.5.
-*   **📡 Trend Detection (Mode A):** An autonomous `TrendAgent` that scrapes HackerNews and DuckDuckGo News in real-time, feeding 50+ raw headlines through the ICP Gatekeeper to pitch the top 3 most valuable B2B topics.
+*   **🧠 Multi-Agent Architecture:** A chained pipeline of specialized AI agents (ICP, Trend, Writer, Regenerate, Research, QC, Repurposing, Analytics, Voice) powered by Anthropic's Claude 3.5.
+*   **📡 Trend Detection & Competitor Radar (Mode A):** An autonomous `TrendAgent` that scrapes HackerNews and DuckDuckGo News in real-time. It can also ingest a competitor's URL to extract and counter-pitch their narratives, finding the top 3 most valuable B2B topics.
 *   **🎯 ICP Gatekeeper & Auto-Reshaper:** Every topic is scored against the Bitcot Ideal Customer Profile. High-value tech/developer topics pass seamlessly. Topics scoring low are automatically "reshaped" with enterprise angles to continue generation without failing.
-*   **📚 Dynamic Narrative Strategy (EEAT & GEO):** Replaces static templates with a dynamic "Library of Narrative Modules". The AI acts as a Content Strategist, dynamically assembling the perfect structure (e.g., CTO Action Frameworks, Code Walkthroughs) based on the target persona. Fully optimized for Google's Generative Engine Optimization (GEO) with mandatory Executive Summaries and "Quick Answers" for AI Search Overviews.
+*   **📚 Dynamic Narrative Strategy (EEAT & GEO):** Replaces static templates with a dynamic "Library of Narrative Modules". The AI acts as a Content Strategist, dynamically assembling the perfect structure (e.g., CTO Action Frameworks, Code Walkthroughs) based on the target persona. Fully optimized for Google's Generative Engine Optimization (GEO).
 *   **✍️ Omni-Channel Generation:** Inputs a single topic and simultaneously generates an SEO-optimized Blog Post, a LinkedIn post, an X (Twitter) thread, and corresponding Image Prompts.
+*   **🧪 Automated A/B Hook Testing:** The WriterAgent can optionally generate 3 distinct hooks (angles) for LinkedIn posts, allowing the user to select the best-performing option in the Human Review Panel.
+*   **♻️ Content Repurposing Engine (Mode C):** The `RepurposingAgent` accepts any long-form text or URL (e.g., blog post or YouTube transcript) and autonomously slices it into multiple LinkedIn posts and a Twitter (X) thread.
+*   **🕵️ Multi-Agent Quality Control:** A dedicated `QCAgent` automatically reviews generated drafts, providing critiques and surgical revisions to enforce tone and brand rules before human review.
+*   **🎙️ Custom Voice Cloning:** The `VoiceAgent` uses a sample of text to reverse-engineer and clone an author's unique voice and tone, saving the dynamic instructions into the system for future generations.
+*   **📈 The Learning Loop (Analytics Agent):** An analytics agent that pulls live engagement data to recursively improve the content engine.
 *   **✨ Directed Enhancement Engine:** Users can input a specific "Enhancement Direction" to forcefully rewrite their Topic, Angle, and Image Idea in a highly targeted direction before generation.
-*   **🎨 Intelligent Image Sourcing & Verification:** Choose between highly detailed AI-generated graphics (via OpenAI DALL-E 3) or fetch real-world photography using web search. Features an **OpenAI Vision verification layer** that actively reviews fetched web images for relevance, falling back to AI generation if a poor image is found.
+*   **🎨 Intelligent Image Sourcing & Verification:** Choose between highly detailed AI-generated graphics (via OpenAI DALL-E 3) or fetch real-world photography using web search. Features an **OpenAI Vision verification layer**.
 *   **🔍 Enterprise-Grade SEO:** Automatically generates heavily constrained Title Tags (< 60 chars), URL slugs, Image Alt Text, and raw JSON-LD Article Schema markup for Google Rich Snippets.
-*   **🎭 Dynamic Persona Overrides:** While it defaults to CTOs/CEOs, the system accepts custom personas on the fly and dynamically adjusts its entire scoring and writing model to target them.
-*   **🌐 Factual Grounding:** When "Web Search" is enabled, the `ResearchAgent` fetches live facts and the writer weaves real product names, event details, and metrics into the content.
-*   **📄 High-Fidelity PDF Export Engine:** Instantly converts drafts into perfectly styled PDFs for cross-team sharing, fortified with dynamic CSS print styles to prevent broken layouts or images being cut in half across pages.
-*   **🎛️ Human-in-the-Loop Dashboard:** A premium, dark-mode Next.js dashboard to review drafts, discover trends, monitor exact AI token/image generation costs, and manage the content lifecycle.
-*   **🔬 Surgical Regeneration:** Version-controlled editing. Users can select specific blocks (e.g., "LinkedIn Hook") and provide feedback to surgically regenerate *only* that piece without breaking the rest of the post.
+*   **📄 High-Fidelity PDF Export Engine:** Instantly converts drafts into perfectly styled PDFs for cross-team sharing, fortified with dynamic CSS print styles.
+*   **🎛️ Human-in-the-Loop Dashboard:** A premium, dark-mode Next.js dashboard to review drafts, discover trends, and manage the content lifecycle.
+*   **🔬 Surgical Regeneration:** Version-controlled editing. Users can select specific blocks and provide feedback to surgically regenerate *only* that piece.
 
 ---
 
@@ -43,17 +46,26 @@ graph TD
     Celery --> WriterAgent[Writer Agent]
     Celery --> RegenAgent[Regenerate Agent]
     WriterAgent --> ResearchAgent[Research Agent]
+    WriterAgent --> QCAgent[QC Agent]
+    API --> RepurposingAgent[Repurposing Agent]
+    API --> AnalyticsAgent[Analytics Agent]
+    API --> VoiceAgent[Voice Agent]
     
     %% Brain & Memory
     ICPAgent -.-> Supabase[(Supabase PostgreSQL)]
     WriterAgent -.-> Supabase
     RegenAgent -.-> Supabase
+    AnalyticsAgent -.-> Supabase
+    VoiceAgent -.-> Supabase
     
     %% External Services
     TrendAgent --> HN[HackerNews API]
     TrendAgent --> DDG[DuckDuckGo News API]
     TrendAgent --> Claude[Anthropic Claude 3.5]
     WriterAgent --> Claude
+    QCAgent --> Claude
+    RepurposingAgent --> Claude
+    VoiceAgent --> Claude
     WriterAgent --> OpenAI[OpenAI DALL-E 3 Image Gen]
     ResearchAgent --> DDG
     
@@ -71,7 +83,7 @@ graph TD
     
     class UI ui;
     class API,Celery api;
-    class ICPAgent,WriterAgent,RegenAgent,ResearchAgent,TrendAgent agent;
+    class ICPAgent,WriterAgent,RegenAgent,ResearchAgent,TrendAgent,QCAgent,RepurposingAgent,AnalyticsAgent,VoiceAgent agent;
     class HN,DDG,Claude,OpenAI external;
     class Supabase,BrandContext,ContentLogs,PerfMetrics db;
 ```
@@ -139,7 +151,6 @@ Navigate to `http://localhost:3000` to access the Control Center.
 
 ## 🗺️ Roadmap (Upcoming Features)
 
-- [ ] **The Learning Loop (Analytics Agent):** Connecting to the LinkedIn and X APIs to pull live engagement data, allowing the AI to retroactively update the `brand_context` database with proven, high-performing hooks.
 - [ ] **Automated Scheduling:** Integration with Buffer/Typefully APIs for direct-to-social publishing.
 
 ---

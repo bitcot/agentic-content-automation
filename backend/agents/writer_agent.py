@@ -6,6 +6,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from openai import OpenAI
 from sqlalchemy.orm import Session
 from agents.logger import emit_agent_log
+from agents.qc_agent import QCAgent
 
 def load_brand_context(db: Session, keys: list[str]) -> dict:
     """Pull specific keys from brand_context table."""
@@ -17,12 +18,12 @@ class WriterAgent:
     def __init__(self):
         self.model_name = "claude-opus-4-7"
 
-    def generate_draft(self, topic: str, angle: str = "", icp_result: dict = None, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", pre_researched_context: str = "", db: Session = None) -> dict:
+    def generate_draft(self, topic: str, angle: str = "", icp_result: dict = None, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", pre_researched_context: str = "", ab_test_hooks: bool = False, db: Session = None) -> dict:
         """
         Generate multi-format content (Blog, LinkedIn, X thread) using LangChain ChatAnthropic.
         Loads all voice rules, approved stats, and format rules from memory layer first.
         """
-        emit_agent_log("WriterAgent", f"Generating multi-format draft for: '{topic}'", {"tone": tone, "persona": target_persona})
+        emit_agent_log("WriterAgent", f"Generating multi-format draft for: '{topic}' (A/B Tests: {ab_test_hooks})", {"tone": tone, "persona": target_persona})
         # Load rich context from memory layer
         ctx = {}
         if db:
@@ -250,6 +251,7 @@ Return ONLY valid JSON with this exact structure:
   }},
   "linkedin": {{
     "post": "...",
+    {'"hooks": ["hook 1", "hook 2", "hook 3"],' if ab_test_hooks else ''}
     "hook_pattern_used": "A|B|C|D",
     "hashtags": ["#tag1", "#tag2", "#tag3"],
     "first_comment": "Blog link: https://www.bitcot.com/blog/[slug]",
@@ -513,6 +515,12 @@ Generate the full Blog + LinkedIn + X Thread now."""
                             li_data["image_url"] = ""
                             print(f"OpenAI Image Gen failed: {e}")
 
+                # Quality Control Step
+                qc_agent = QCAgent()
+                qc_result = qc_agent.review_and_revise(blog_body_raw, topic, tone)
+                blog_data["body"] = qc_result.get("revised_draft", blog_body_raw)
+                qc_critique = qc_result.get("critique", "")
+
                 return {
                     "topic": topic,
                     "icp_score": icp_result.get("score", 0.0),
@@ -521,7 +529,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                     "linkedin": li_data,
                     "x_thread": result.get("x_thread", {}),
                     "needs_human_check": result.get("needs_human_check", True),
-                    "check_flags": result.get("check_flags", []),
+                    "check_flags": result.get("check_flags", []) + ([f"QC Critique: {qc_critique}"] if qc_critique else []),
                     "status": "pending_review",
                     "token_usage": token_usage,
                 }
