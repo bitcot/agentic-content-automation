@@ -2,62 +2,69 @@ import os
 import json
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
-import redis
-
-# Redis for websockets
-r = redis.Redis(host='localhost', port=6379, db=0)
+from agents.logger import emit_agent_log
 
 class QCAgent:
     def __init__(self):
-        self.model = ChatAnthropic(
-            model_name="claude-3-opus-20240229",
-            temperature=0.2,
-            max_tokens=4000
-        )
+        self.model_name = "claude-3-5-sonnet-20240620"
+
+    def evaluate_draft(self, draft: dict, topic: str) -> dict:
+        emit_agent_log("QC Agent", f"Initiating Quality Control review for topic: {topic}")
+        emit_agent_log("QC Agent", "Analyzing draft for fluff, structure, and value gaps...")
         
-    def _log(self, msg: str):
-        print(f"[QC Agent] {msg}")
-        try:
-            r.publish('agent_logs', json.dumps({"agent": "QC Agent", "message": msg}))
-        except:
-            pass
-
-    def review_and_revise(self, draft: str, topic: str, tone: str) -> dict:
-        self._log(f"Initiating Quality Control review for topic: {topic}")
+        blog_data = draft.get("blog", {})
+        body = blog_data.get("body", "")
         
-        system_prompt = """You are the QC Agent for Bitcot, acting as both a Devil's Advocate and an SEO/Quality Manager.
-Your job is to brutally critique the provided content draft and then rewrite it to fix the issues.
+        # Word count check
+        word_count = len(body.split())
+        
+        system_prompt = """You are the Senior Quality Control Agent for Bitcot's premier blog content.
+Your job is to rigorously evaluate a generated blog draft.
+A high-quality Bitcot blog MUST have:
+1. At least 1,500 words.
+2. Deep technical sections (e.g., 'Complete Architecture', 'Implementation Frameworks').
+3. At least 2 HTML tables.
+4. An H2 section '## Frequently Asked Questions (FAQs)'.
+5. An H2 section exactly '## Looking for your premier development partner?' followed by a CTA to /lets-talk/.
+6. Zero fluff or generic filler statements.
 
-Look for:
-1. Fluff: Are there corporate buzzwords (synergy, revolutionize, paradigm shift)?
-2. Value: Does it provide concrete, actionable value or just high-level generalizations?
-3. SEO/Structure: Are there headers? Are paragraphs short and readable?
-
-You must return a JSON object with two keys:
-- "critique": A string summarizing your brutal critique.
-- "revised_draft": The final rewritten and improved text.
+Evaluate the draft against these criteria. If it fails ANY criterion, set "status" to "rejected" and provide specific "feedback" so the WriterAgent can rewrite it.
+Return ONLY valid JSON in this format:
+{
+  "status": "approved" | "rejected",
+  "feedback": "string explaining what needs to be fixed"
+}
 """
-        
-        self._log("Analyzing draft for fluff, structure, and value gaps...")
-        
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=f"Topic: {topic}\nIntended Tone: {tone}\n\nDraft:\n{draft}")
-        ]
-        
+
+        user_msg = f"Draft Body:\n{body}\n\nDraft Word Count: {word_count}\n\nEvaluate now."
+
         try:
-            response = self.model.invoke(messages)
+            chat = ChatAnthropic(
+                model=self.model_name,
+                anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+                timeout=300.0,
+                max_tokens=1024
+            )
+            response = chat.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_msg)
+            ])
+            text = response.content.strip()
             
-            # Extract JSON block
-            text = response.content
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0].strip()
-            
-            result = json.loads(text)
-            
-            self._log(f"Critique finished: {result.get('critique', 'Minor adjustments made.')}")
-            self._log("Applied revisions successfully.")
-            return result
+            import re
+            m = re.search(r'\{.*\}', text, re.DOTALL)
+            if m:
+                result = json.loads(m.group())
+                
+                if result.get("status") == "rejected":
+                    emit_agent_log("QC Agent", f"QC Failed: {result.get('feedback')}")
+                else:
+                    emit_agent_log("QC Agent", "QC Passed: Content meets premier standards.")
+                    
+                return result
+            else:
+                emit_agent_log("QC Agent", "Failed to parse JSON from QC response")
+                return {"status": "rejected", "feedback": "QC Agent failed to output valid JSON"}
         except Exception as e:
-            self._log(f"Error during QC: {str(e)}")
-            return {"critique": "QC bypassed due to error.", "revised_draft": draft}
+            emit_agent_log("QC Agent", f"Error during QC: {str(e)}")
+            return {"status": "rejected", "feedback": f"Error during QC: {str(e)}"}

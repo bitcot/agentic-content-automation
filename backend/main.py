@@ -108,32 +108,14 @@ class GenerateRequest(BaseModel):
     image_idea: str = ""
     use_web_search: bool = False
     image_source: str = "ai"
-    ab_test_hooks: bool = False
 
 class WriteContentRequest(GenerateRequest):
     icp_result: dict = {}
     research_context: str = ""
 
-class CloneVoiceRequest(BaseModel):
-    sample_text: str
-    persona_name: str
-
-class RepurposeRequest(BaseModel):
-    source_url: str = ""
-    source_text: str = ""
-
 @app.get("/")
 def read_root():
     return {"status": "Bitcot Content OS Active"}
-
-@app.post("/repurpose")
-def repurpose_content(req: RepurposeRequest):
-    from agents.repurposing_agent import RepurposingAgent
-    agent = RepurposingAgent()
-    result = agent.repurpose(source_text=req.source_text, source_url=req.source_url)
-    if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
-    return result
 
 @app.get("/proxy-image")
 def proxy_image(url: str):
@@ -148,19 +130,19 @@ def proxy_image(url: str):
         raise HTTPException(status_code=400, detail="Failed to fetch image")
 
 @app.get("/discover-trends")
-def discover_trends(competitor_url: str = None):
-    """Fetches trending topics from HN/DDG and scores them, caching for 30 minutes. Or analyzes competitor_url."""
+def discover_trends():
+    """Fetches trending topics from HN/DDG and scores them, caching for 30 minutes."""
     global TREND_CACHE
     now = time.time()
     
     # Cache for 30 minutes (1800 seconds)
-    if not competitor_url and TREND_CACHE["data"] is not None and (now - TREND_CACHE["timestamp"]) < 1800:
+    if TREND_CACHE["data"] is not None and (now - TREND_CACHE["timestamp"]) < 1800:
         return {"trends": TREND_CACHE["data"], "cached": True}
         
     try:
         agent = TrendAgent()
-        trends = agent.discover_trends(competitor_url)
-        if trends and not competitor_url:
+        trends = agent.discover_trends()
+        if trends:
             TREND_CACHE["data"] = trends
             TREND_CACHE["timestamp"] = now
         return {"trends": trends, "cached": False}
@@ -319,13 +301,19 @@ def write_content_endpoint(request: WriteContentRequest, db: Session = Depends(g
         use_web_search=request.use_web_search,
         image_source=request.image_source,
         pre_researched_context=request.research_context,
-        ab_test_hooks=request.ab_test_hooks,
         db=db
     )
 
     score = request.icp_result.get("score", 0.0)
     blog_body = draft.get("blog", {}).get("body", "")
     needs_check = draft.get("needs_human_check", True)
+
+    # Apply AI Detection Scoring
+    from agents.ai_score_agent import AIScoreAgent
+    ai_agent = AIScoreAgent()
+    ai_score_result = ai_agent.evaluate(blog_body)
+    draft["ai_probability_score"] = ai_score_result.get("ai_probability_score", 100)
+    draft["ai_reasoning"] = ai_score_result.get("reasoning", "")
 
     log = models.ContentLog(
         topic=request.topic,
@@ -345,7 +333,10 @@ def write_content_endpoint(request: WriteContentRequest, db: Session = Depends(g
         "blog": draft.get("blog", {}),
         "linkedin": draft.get("linkedin", {}),
         "x_thread": draft.get("x_thread", {}),
+        "newsletter": draft.get("newsletter", {}),
         "needs_human_check": needs_check,
+        "ai_probability_score": draft.get("ai_probability_score", 100),
+        "ai_reasoning": draft.get("ai_reasoning", ""),
         "check_flags": draft.get("check_flags", []),
         "token_usage": draft.get("token_usage", {}),
         "research_context": request.research_context,
@@ -419,7 +410,10 @@ def regenerate_content_endpoint(request: RegenerateRequest, db: Session = Depend
             "blog": new_draft.get("blog", {}),
             "linkedin": new_draft.get("linkedin", {}),
             "x_thread": new_draft.get("x_thread", {}),
-            "needs_human_check": log.needs_human_check,
+            "newsletter": new_draft.get("newsletter", {}),
+            "needs_human_check": new_draft.get("needs_human_check", True),
+            "ai_probability_score": new_draft.get("ai_probability_score", 100),
+            "ai_reasoning": new_draft.get("ai_reasoning", ""),
             "check_flags": new_draft.get("check_flags", [])
         }
     except Exception as e:
@@ -457,7 +451,6 @@ def get_analytics(db: Session = Depends(get_db)):
         "x_bookmark_rate": metrics.x_bookmark_rate,
         "top_performers": metrics.top_performers,
         "under_performers": metrics.under_performers,
-        "time_series": metrics.time_series,
         "ai_learnings": learnings
     }
 
@@ -469,24 +462,6 @@ def trigger_learning_loop():
         return {"status": "success", "rulebook": rulebook}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/clone-voice")
-def clone_voice_endpoint(request: CloneVoiceRequest, db: Session = Depends(get_db)):
-    from agents.voice_agent import VoiceAgent
-    agent = VoiceAgent()
-    try:
-        rulebook = agent.clone_voice(request.sample_text, request.persona_name)
-        return {"status": "success", "persona": request.persona_name, "rulebook": rulebook}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/voices")
-def get_custom_voices(db: Session = Depends(get_db)):
-    """Returns list of custom voice personas cloned so far"""
-    voices = db.query(models.BrandContext).filter(models.BrandContext.key.like("voice_persona_%")).all()
-    # Extract names from keys: "voice_persona_mouriyan" -> "mouriyan"
-    voice_names = [v.key.replace("voice_persona_", "") for v in voices]
-    return {"status": "success", "voices": voice_names}
 
 @app.get("/history/{content_id}")
 def get_history_item(content_id: int, db: Session = Depends(get_db)):
@@ -516,7 +491,10 @@ def get_history_item(content_id: int, db: Session = Depends(get_db)):
         "blog": draft.get("blog", {}),
         "linkedin": draft.get("linkedin", {}),
         "x_thread": draft.get("x_thread", {}),
-        "needs_human_check": log.needs_human_check,
+        "newsletter": draft.get("newsletter", {}),
+        "needs_human_check": draft.get("needs_human_check", False),
+        "ai_probability_score": draft.get("ai_probability_score", 100),
+        "ai_reasoning": draft.get("ai_reasoning", ""),
         "check_flags": draft.get("check_flags", []),
         "token_usage": draft.get("token_usage", {})
     }

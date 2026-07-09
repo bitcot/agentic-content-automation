@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
 
 const tones = [
@@ -32,7 +32,6 @@ export default function ManualInputPanel({
   const [authorVoice, setAuthorVoice] = useState("bitcot");
   const [useWebSearch, setUseWebSearch] = useState(false);
   const [requireApproval, setRequireApproval] = useState(true);
-  const [abTestHooks, setAbTestHooks] = useState(false);
   const [imageSource, setImageSource] = useState("ai");
   const [activePlatforms, setActivePlatforms] = useState(
     new Set(["LinkedIn", "X Thread", "Blog"])
@@ -49,62 +48,6 @@ export default function ManualInputPanel({
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [trends, setTrends] = useState<any[]>([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
-  
-  const [customVoices, setCustomVoices] = useState<string[]>([]);
-  const [showVoiceModal, setShowVoiceModal] = useState(false);
-  const [newVoiceName, setNewVoiceName] = useState("");
-  const [newVoiceSample, setNewVoiceSample] = useState("");
-  const [isCloning, setIsCloning] = useState(false);
-
-  const [repurposeUrl, setRepurposeUrl] = useState("");
-  const [isRepurposing, setIsRepurposing] = useState(false);
-  const [repurposedResult, setRepurposedResult] = useState<any>(null);
-  
-  const [competitorUrl, setCompetitorUrl] = useState("");
-
-  useEffect(() => {
-    const fetchVoices = async () => {
-      try {
-        const backendUrl = `http://${window.location.hostname}:8000`;
-        const res = await fetch(`${backendUrl}/voices`);
-        const data = await res.json();
-        if (data.status === 'success') {
-          setCustomVoices(data.voices);
-        }
-      } catch (err) {
-        console.error("Failed to fetch voices:", err);
-      }
-    };
-    fetchVoices();
-  }, []);
-
-  const handleCloneVoice = async () => {
-    if (!newVoiceName || !newVoiceSample) return;
-    setIsCloning(true);
-    try {
-      const backendUrl = `http://${window.location.hostname}:8000`;
-      const res = await fetch(`${backendUrl}/clone-voice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sample_text: newVoiceSample,
-          persona_name: newVoiceName
-        })
-      });
-      const data = await res.json();
-      if (data.status === 'success') {
-        setCustomVoices(prev => [...prev, data.persona]);
-        setAuthorVoice(data.persona);
-        setShowVoiceModal(false);
-        setNewVoiceName("");
-        setNewVoiceSample("");
-      }
-    } catch (err) {
-      console.error("Failed to clone voice:", err);
-    } finally {
-      setIsCloning(false);
-    }
-  };
 
   const { isListening, activeField, startListening, hasSupport } = useVoiceRecognition();
 
@@ -153,8 +96,7 @@ export default function ManualInputPanel({
     setIsDiscovering(true);
     try {
       const backendUrl = `http://${window.location.hostname}:8000`;
-      const url = competitorUrl ? `${backendUrl}/discover-trends?competitor_url=${encodeURIComponent(competitorUrl)}` : `${backendUrl}/discover-trends`;
-      const res = await fetch(url);
+      const res = await fetch(`${backendUrl}/discover-trends`);
       const data = await res.json();
       setTrends(data.trends || []);
     } catch (err) {
@@ -189,26 +131,6 @@ export default function ManualInputPanel({
     }
   };
 
-  const handleRepurpose = async () => {
-    if (!repurposeUrl.trim()) return;
-    setIsRepurposing(true);
-    setRepurposedResult(null);
-    try {
-      const backendUrl = `http://${window.location.hostname}:8000`;
-      const res = await fetch(`${backendUrl}/repurpose`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source_url: repurposeUrl })
-      });
-      const data = await res.json();
-      setRepurposedResult(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsRepurposing(false);
-    }
-  };
-
   return (
     <div style={{ maxWidth: 680, margin: '60px auto 0', animation: 'fadeUp 0.4s ease' }}>
 
@@ -232,51 +154,14 @@ export default function ManualInputPanel({
       </div>
 
       <div style={{ marginBottom: 40, borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 24 }}>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-          <input
-            type="text"
-            placeholder="[Optional] Enter Competitor URL for Counter-Narratives..."
-            value={competitorUrl}
-            onChange={e => setCompetitorUrl(e.target.value)}
-            style={{ flex: 1 }}
-          />
-        </div>
         <button 
           onClick={handleDiscover} 
           disabled={isDiscovering}
           className="btn" 
-          style={{ width: '100%', background: 'rgba(200,255,0,0.05)', borderColor: 'rgba(200,255,0,0.3)', color: 'var(--accent)', marginBottom: 12 }}
+          style={{ width: '100%', background: 'rgba(200,255,0,0.05)', borderColor: 'rgba(200,255,0,0.3)', color: 'var(--accent)' }}
         >
-          {isDiscovering ? 'Analyzing...' : '✨ Discover Trending Topics (Mode A)'}
+          {isDiscovering ? 'Scraping HackerNews & Web...' : '✨ Discover Trending Topics (Mode A)'}
         </button>
-
-        <div style={{ padding: 16, border: '1px solid rgba(255,184,0,0.3)', background: 'rgba(255,184,0,0.05)', borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--amber)' }}>Mode C — Repurpose Asset</span>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <input
-              type="text"
-              placeholder="Paste Blog URL or YouTube Transcript URL..."
-              value={repurposeUrl}
-              onChange={e => setRepurposeUrl(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <button 
-              className="action-btn"
-              onClick={handleRepurpose}
-              disabled={isRepurposing || !repurposeUrl}
-              style={{ background: 'var(--amber)', color: '#000', borderColor: 'var(--amber)' }}
-            >
-              {isRepurposing ? 'Extracting...' : 'Repurpose'}
-            </button>
-          </div>
-          {repurposedResult && (
-            <div style={{ marginTop: 12, fontSize: 12, color: 'var(--paper)', maxHeight: 300, overflowY: 'auto' }}>
-              <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)', fontSize: 10 }}>
-                {JSON.stringify(repurposedResult, null, 2)}
-              </pre>
-            </div>
-          )}
-        </div>
 
         {trends.length > 0 && (
           <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -473,27 +358,7 @@ export default function ManualInputPanel({
 
         {/* Author Voice row */}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 }}>
-            <label className="field-label" style={{ marginBottom: 0 }}>Author Voice</label>
-            <button 
-              onClick={() => setShowVoiceModal(true)} 
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(200,255,0,0.3)',
-                color: 'var(--accent)',
-                fontSize: 10,
-                padding: '4px 8px',
-                borderRadius: 4,
-                cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                transition: 'all 0.2s'
-              }}
-            >
-              + Clone Voice
-            </button>
-          </div>
+          <label className="field-label">Author Voice</label>
           <div className="platform-toggle-group">
             <div className="platform-toggle">
               <input
@@ -505,18 +370,16 @@ export default function ManualInputPanel({
               />
               <label htmlFor="voice-bitcot">Bitcot Brand</label>
             </div>
-            {customVoices.map(voice => (
-              <div className="platform-toggle" key={voice}>
-                <input
-                  type="radio"
-                  id={`voice-${voice}`}
-                  name="authorVoice"
-                  checked={authorVoice === voice}
-                  onChange={() => setAuthorVoice(voice)}
-                />
-                <label htmlFor={`voice-${voice}`}>{voice}</label>
-              </div>
-            ))}
+            <div className="platform-toggle">
+              <input
+                type="radio"
+                id="voice-raj"
+                name="authorVoice"
+                checked={authorVoice === "raj"}
+                onChange={() => setAuthorVoice("raj")}
+              />
+              <label htmlFor="voice-raj">Raj Sanghvi (CEO)</label>
+            </div>
           </div>
         </div>
 
@@ -546,17 +409,6 @@ export default function ManualInputPanel({
                 Require Research Approval Mid-Flight
               </label>
             </div>
-            <div className="platform-toggle">
-              <input
-                type="checkbox"
-                id="ab-test-hooks"
-                checked={abTestHooks}
-                onChange={(e) => setAbTestHooks(e.target.checked)}
-              />
-              <label htmlFor="ab-test-hooks" style={{ color: abTestHooks ? 'var(--accent)' : 'inherit' }}>
-                A/B Test Hooks (Generate 3 variations)
-              </label>
-            </div>
           </div>
         </div>
 
@@ -583,7 +435,7 @@ export default function ManualInputPanel({
           {!isLoading ? (
             <button
               className="btn btn-primary"
-              onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, useWebSearch, requireApproval, abTestHooks, imageSource, platforms: [...activePlatforms] })}
+              onClick={() => onGenerate({ topic, angle, imageIdea, targetPersona, tone, authorVoice, useWebSearch, requireApproval, imageSource, platforms: [...activePlatforms] })}
               disabled={!topic.trim()}
               style={{ padding: '12px 32px', fontSize: 12 }}
             >
@@ -634,67 +486,6 @@ export default function ManualInputPanel({
             </div>
           )}
         </div>
-        
-        {showVoiceModal && (
-          <div style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            backdropFilter: 'blur(5px)'
-          }}>
-            <div style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              padding: 30,
-              borderRadius: 8,
-              width: 500,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 20
-            }}>
-              <h3 style={{ margin: 0, color: 'var(--accent)' }}>Clone Voice Persona</h3>
-              <div>
-                <label className="field-label">Persona Name</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Raj Sanghvi" 
-                  value={newVoiceName}
-                  onChange={e => setNewVoiceName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="field-label">Writing Sample (Paste past LinkedIn posts or articles)</label>
-                <textarea 
-                  style={{ height: 150 }}
-                  placeholder="Paste at least 150 words of their best writing..."
-                  value={newVoiceSample}
-                  onChange={e => setNewVoiceSample(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button 
-                  className="secondary-btn" 
-                  onClick={() => setShowVoiceModal(false)}
-                  disabled={isCloning}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="action-btn" 
-                  onClick={handleCloneVoice}
-                  disabled={isCloning || !newVoiceName || !newVoiceSample}
-                >
-                  {isCloning ? 'Cloning...' : 'Extract Voice DNA ✨'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
       </div>
     </div>
   );

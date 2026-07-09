@@ -57,6 +57,7 @@ export default function HumanReviewPanel({
   const blog       = draftData?.blog || {};
   const linkedin   = draftData?.linkedin || {};
   const xThread    = draftData?.x_thread || {};
+  const newsletter = draftData?.newsletter || {};
   const checkFlags = draftData?.check_flags || [];
   const needsCheck = draftData?.needs_human_check;
 
@@ -64,7 +65,7 @@ export default function HumanReviewPanel({
   const icpPct   = (score * 100).toFixed(0);
   const approved = score >= 0.65;
 
-  const [activeTab, setActiveTab] = useState<'blog' | 'linkedin' | 'x' | 'sources'>('blog');
+  const [activeTab, setActiveTab] = useState<'blog' | 'linkedin' | 'x' | 'newsletter' | 'sources'>('blog');
   const [showRegen, setShowRegen] = useState(false);
   const [regenTarget, setRegenTarget] = useState('all');
   const [regenFeedback, setRegenFeedback] = useState('');
@@ -141,6 +142,27 @@ export default function HumanReviewPanel({
               </div>
             </>
           )}
+
+          {draftData?.ai_probability_score !== undefined && (
+            <>
+              <div style={{ width: 1, height: 36, background: 'var(--rule-strong)' }} />
+              <div title={draftData.ai_reasoning}>
+                <span style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--muted)' }}>AI Detector</span>
+                <div style={{ 
+                  fontFamily: 'var(--font-mono)', 
+                  fontSize: 11, 
+                  marginTop: 4,
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  background: draftData.ai_probability_score > 50 ? 'rgba(255, 68, 68, 0.1)' : 'rgba(0, 200, 83, 0.1)',
+                  color: draftData.ai_probability_score > 50 ? '#ff4444' : '#00c853',
+                  display: 'inline-block'
+                }}>
+                  {draftData.ai_probability_score > 50 ? '🔴' : '🟢'} {draftData.ai_probability_score}% AI
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 0 }}>
@@ -175,6 +197,7 @@ export default function HumanReviewPanel({
           { id: 'blog', label: 'Blog Post' },
           { id: 'linkedin', label: 'LinkedIn' },
           { id: 'x', label: 'X Thread' },
+          { id: 'newsletter', label: 'Newsletter' },
           { id: 'sources', label: 'Research Sources' },
         ] as const).map(t => (
           <button
@@ -370,20 +393,6 @@ export default function HumanReviewPanel({
                 </a>
               </div>
             )}
-            {linkedin.hooks && linkedin.hooks.length > 0 && (
-              <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(200,255,0,0.03)', border: '1px solid rgba(200,255,0,0.2)' }}>
-                <span style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--accent)', display: 'block', marginBottom: 12 }}>A/B Test Hooks Generated</span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {linkedin.hooks.map((h: string, i: number) => (
-                    <div key={i} style={{ padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 13, color: 'var(--paper)', lineHeight: 1.5 }}>
-                      <strong style={{ color: 'var(--accent)', marginRight: 8 }}>Option {i+1}:</strong> 
-                      {h}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
             <div 
               className="draft-area rendered-markdown" 
               dangerouslySetInnerHTML={renderMarkdown(linkedin.post || '—')} 
@@ -410,6 +419,26 @@ export default function HumanReviewPanel({
                 <span style={{ fontSize: 16, color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{xThread.dm_keyword}</span>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'newsletter' && (
+          <div style={{ maxWidth: 680 }}>
+            {newsletter.subject_line && (
+              <h2 style={{ fontSize: 24, letterSpacing: '-0.02em', color: 'var(--slate)', marginBottom: 8 }}>
+                {newsletter.subject_line}
+              </h2>
+            )}
+            {newsletter.preview_text && (
+              <p style={{ fontSize: 13, color: 'var(--paper)', marginBottom: 32, fontStyle: 'italic' }}>
+                Preview: {newsletter.preview_text}
+              </p>
+            )}
+            
+            <div 
+              className="markdown-body"
+              dangerouslySetInnerHTML={renderMarkdown(newsletter.body || '—')} 
+            />
           </div>
         )}
 

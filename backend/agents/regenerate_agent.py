@@ -30,6 +30,8 @@ class RegenerateAgent:
             part_content = json.dumps(draft.get("linkedin", {}))
         elif target_part == "x_thread":
             part_content = json.dumps(draft.get("x_thread", {}))
+        elif target_part == "newsletter":
+            part_content = json.dumps(draft.get("newsletter", {}))
         elif target_part == "blog_image":
             part_content = draft.get("blog", {}).get("image_prompt", "")
         elif target_part == "linkedin_image":
@@ -52,8 +54,9 @@ Your task is to REGENERATE a specific part of an existing draft based on user fe
    - If blog: {{"title": "...", "meta_description": "...", "body": "...", "seo_keywords": [...], "internal_links": [...], "word_count": 0, "image_prompt": "..."}}
    - If linkedin: {{"post": "...", "hook_pattern_used": "...", "hashtags": [...], "first_comment": "...", "estimated_engagement": "...", "image_prompt": "..."}}
    - If x_thread: {{"tweets": [...], "dm_keyword": "..."}}
+   - If newsletter: {{"subject_line": "...", "preview_text": "...", "body": "..."}}
    - If blog_image or linkedin_image: {{"image_prompt": "..."}}
-   - If all: return the full structure combining blog, linkedin, x_thread.
+   - If all: return the full structure combining blog, linkedin, x_thread, newsletter.
 
 Zero fluff, no "—" em dashes, and write for a cynical software engineering buyer. 
 When writing an image_prompt, ALWAYS write comma-separated keywords (no full sentences), NEVER request text or words in the image, and use visual metaphors over literal tech tropes.
@@ -65,8 +68,9 @@ When writing an image_prompt, ALWAYS write comma-separated keywords (no full sen
             chat = ChatAnthropic(
                 model=self.model_name,
                 anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
-                timeout=120.0,
-                max_tokens=4096
+                timeout=300.0,
+                max_tokens=8192,
+                model_kwargs={"extra_headers": {"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"}}
             )
             response = chat.invoke([
                 SystemMessage(content=system_prompt),
@@ -114,6 +118,8 @@ When writing an image_prompt, ALWAYS write comma-separated keywords (no full sen
                         print(f"OpenAI gen failed: {e}")
             elif target_part == "x_thread":
                 draft["x_thread"] = updated_part
+            elif target_part == "newsletter":
+                draft["newsletter"] = updated_part
             elif target_part == "blog_image":
                 draft["blog"]["image_prompt"] = updated_part.get("image_prompt", "")
                 if draft["blog"]["image_prompt"]:
@@ -142,6 +148,7 @@ When writing an image_prompt, ALWAYS write comma-separated keywords (no full sen
                 draft["blog"] = updated_part.get("blog", draft.get("blog"))
                 draft["linkedin"] = updated_part.get("linkedin", draft.get("linkedin"))
                 draft["x_thread"] = updated_part.get("x_thread", draft.get("x_thread"))
+                draft["newsletter"] = updated_part.get("newsletter", draft.get("newsletter"))
 
             return draft
         except Exception as e:

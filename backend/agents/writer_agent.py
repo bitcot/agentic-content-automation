@@ -6,7 +6,6 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from openai import OpenAI
 from sqlalchemy.orm import Session
 from agents.logger import emit_agent_log
-from agents.qc_agent import QCAgent
 
 def load_brand_context(db: Session, keys: list[str]) -> dict:
     """Pull specific keys from brand_context table."""
@@ -18,12 +17,12 @@ class WriterAgent:
     def __init__(self):
         self.model_name = "claude-opus-4-7"
 
-    def generate_draft(self, topic: str, angle: str = "", icp_result: dict = None, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", pre_researched_context: str = "", ab_test_hooks: bool = False, db: Session = None) -> dict:
+    def generate_draft(self, topic: str, angle: str = "", icp_result: dict = None, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", pre_researched_context: str = "", db: Session = None) -> dict:
         """
         Generate multi-format content (Blog, LinkedIn, X thread) using LangChain ChatAnthropic.
         Loads all voice rules, approved stats, and format rules from memory layer first.
         """
-        emit_agent_log("WriterAgent", f"Generating multi-format draft for: '{topic}' (A/B Tests: {ab_test_hooks})", {"tone": tone, "persona": target_persona})
+        emit_agent_log("WriterAgent", f"Generating multi-format draft for: '{topic}'", {"tone": tone, "persona": target_persona})
         # Load rich context from memory layer
         ctx = {}
         if db:
@@ -91,11 +90,6 @@ class WriterAgent:
                 ctx.get("voice_rule_9_x_threads", ""),
                 ctx.get("voice_rule_10_linkedin_url", ""),
             ])
-            
-        if author_voice and author_voice.lower() != "bitcot":
-            custom_voice = ctx.get(f"voice_persona_{author_voice.lower()}", "")
-            if custom_voice:
-                voice_rules = f"=== CUSTOM AUTHOR VOICE: {author_voice.upper()} ===\nThe user has requested you ghostwrite using this EXACT persona instead of the default. MUST FOLLOW THESE STYLISTIC RULES:\n{custom_voice}"
 
         # Build hook patterns block
         hook_patterns = "\n".join([
@@ -150,7 +144,7 @@ class WriterAgent:
 === CONTENT WRITING FOUNDATIONS PLAYBOOK ===
 {playbook_content}
 
-You will produce THREE pieces of content for the same topic: a Blog Post, a LinkedIn Post, and an X Thread.
+You will produce FOUR pieces of content for the same topic: a Blog Post, a LinkedIn Post, an X Thread, and a Newsletter.
 
 ═══ VOICE RULES — NON-NEGOTIABLE ═══
 {voice_rules}
@@ -195,8 +189,10 @@ If you use statistics, you MUST either use highly relevant ones from the APPROVE
 ═══ TRUST SIGNALS & CREDIBILITY (CRITICAL) ═══
 You MUST include a strong section establishing credibility. Use exact statements like: "Our team has delivered 100+ mobile applications and worked with enterprise iOS architectures across healthcare, fintech, and SaaS platforms." Do not make claims about the future without grounding them in our past implementation experience.
 
-═══ BLOG BODY STRUCTURE (CRITICAL) ═══
+═══ BLOG BODY STRUCTURE & QUALITY (CRITICAL) ═══
 You MUST format the "body" field of the blog exactly as follows to match our proven structure.
+0. **LENGTH & DEPTH**: The blog MUST exceed 1,500 words. You MUST include deep technical dives, architectural patterns, and real-world implementation details to ensure it meets premier Bitcot standards.
+0.5. **GENERATIVE ENGINE OPTIMIZATION (GEO)**: Optimize for LLM search engines (Perplexity, ChatGPT, Gemini). Use clear, direct answers for definitions, heavily cite authoritative sources, use structured data formats (tables, lists), and avoid marketing fluff so AI models can easily parse, extract, and synthesize the information as facts.
 1. **Key Takeaways**: Wrapped exactly like this:
 <div class="key-takeaways">
   <h2>Key Takeaways</h2>
@@ -216,7 +212,7 @@ You MUST format the "body" field of the blog exactly as follows to match our pro
 9. **Challenges and Solutions**: Real-world implementation details.
    - **CRITICAL**: Include a SECOND HTML `<table>` here (e.g. Feature Matrix or Risk Mitigation table). The blog MUST have at least 2 HTML tables total.
 10. **Business Impact & ROI**: Why executives should care. Include conversion assets (e.g., ROI calculators or assessment checklists).
-11. **Why Bitcot (Closing CTA)**: Establish trust (100+ mobile apps delivered) with a strong conversional CTA linking to `/lets-talk/`.
+11. **Why Bitcot & Final CTA**: MUST start with the exact H2 `## Looking for your premier development partner?` followed by a compelling pitch about Bitcot's expertise and a link to `/lets-talk/`.
 12. **Conclusion**: A definitive wrap-up wrapping the argument together.
 13. **Expanded FAQs**: Wrapped exactly like this at the very end:
 <div class="faq-section">
@@ -251,7 +247,6 @@ Return ONLY valid JSON with this exact structure:
   }},
   "linkedin": {{
     "post": "...",
-    {'"hooks": ["hook 1", "hook 2", "hook 3"],' if ab_test_hooks else ''}
     "hook_pattern_used": "A|B|C|D",
     "hashtags": ["#tag1", "#tag2", "#tag3"],
     "first_comment": "Blog link: https://www.bitcot.com/blog/[slug]",
@@ -261,6 +256,11 @@ Return ONLY valid JSON with this exact structure:
   "x_thread": {{
     "tweets": ["tweet 1 hook", "tweet 2", "tweet 3", "tweet 4", "tweet 5", "tweet 6 DM hook"],
     "dm_keyword": "KEYWORD_IN_CAPS"
+  }},
+  "newsletter": {{
+    "subject_line": "Catchy, curiosity-driven subject line",
+    "preview_text": "Short preview text for email clients",
+    "body": "HTML or markdown formatted newsletter body. Deep insights, easy to read, conversational."
   }},
   "needs_human_check": <true|false>,
   "check_flags": ["list of [NEEDS HUMAN CHECK] items found"]
@@ -278,7 +278,7 @@ Persona: {persona_match}
 Tone: {tone}
 ICP Reasoning: {icp_result.get('reasoning', '')}
 
-Generate the full Blog + LinkedIn + X Thread now."""
+Generate the full Blog + LinkedIn + X Thread + Newsletter now."""
 
         if use_web_search:
             user_msg += "\n\nCRITICAL INSTRUCTION: You MUST heavily integrate the actual facts, product names, metrics, and details from the WEb Search Context provided above. Do not just write a generic philosophical piece. Ground your contrarian angle strictly in the concrete events/announcements retrieved from the web search."
@@ -287,8 +287,9 @@ Generate the full Blog + LinkedIn + X Thread now."""
             chat = ChatAnthropic(
                 model=self.model_name,
                 anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
-                timeout=120.0,
-                max_tokens=8192
+                timeout=300.0,
+                max_tokens=8192,
+                model_kwargs={"extra_headers": {"anthropic-beta": "max-tokens-3-5-sonnet-2024-07-15"}}
             )
             response = chat.invoke([
                 SystemMessage(content=system_prompt),
@@ -515,12 +516,6 @@ Generate the full Blog + LinkedIn + X Thread now."""
                             li_data["image_url"] = ""
                             print(f"OpenAI Image Gen failed: {e}")
 
-                # Quality Control Step
-                qc_agent = QCAgent()
-                qc_result = qc_agent.review_and_revise(blog_body_raw, topic, tone)
-                blog_data["body"] = qc_result.get("revised_draft", blog_body_raw)
-                qc_critique = qc_result.get("critique", "")
-
                 return {
                     "topic": topic,
                     "icp_score": icp_result.get("score", 0.0),
@@ -528,8 +523,9 @@ Generate the full Blog + LinkedIn + X Thread now."""
                     "blog": blog_data,
                     "linkedin": li_data,
                     "x_thread": result.get("x_thread", {}),
+                    "newsletter": result.get("newsletter", {}),
                     "needs_human_check": result.get("needs_human_check", True),
-                    "check_flags": result.get("check_flags", []) + ([f"QC Critique: {qc_critique}"] if qc_critique else []),
+                    "check_flags": result.get("check_flags", []),
                     "status": "pending_review",
                     "token_usage": token_usage,
                 }
@@ -544,6 +540,7 @@ Generate the full Blog + LinkedIn + X Thread now."""
                 "blog": {"h1_title": topic, "title_tag": topic, "url_slug": topic.lower().replace(" ", "-"), "body": text, "meta_description": "", "seo_keywords": [], "internal_links": [], "word_count": 0, "image_alt_text": "", "json_ld_schema": ""},
                 "linkedin": {"post": "", "hook_pattern_used": "", "hashtags": [], "first_comment": "", "estimated_engagement": ""},
                 "x_thread": {"tweets": [], "dm_keyword": ""},
+                "newsletter": {"subject_line": "", "preview_text": "", "body": ""},
                 "needs_human_check": True,
                 "check_flags": [f"JSON parse error: {str(e)}"],
                 "status": "pending_review",

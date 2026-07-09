@@ -9,7 +9,7 @@ from agents.seo_agent import SEOAgent
 from agents.writer_agent import WriterAgent
 
 @celery_app.task(bind=True, name="generate_content_task")
-def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", ab_test_hooks: bool = False):
+def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: str = "", use_web_search: bool = False, image_source: str = "ai"):
     """
     Background task to run the heavy agentic pipeline.
     """
@@ -27,7 +27,6 @@ def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: s
             "image_idea": image_idea,
             "use_web_search": use_web_search,
             "image_source": image_source,
-            "ab_test_hooks": ab_test_hooks,
             "db_session": db,
             "icp_result": None,
             "seo_data": None,
@@ -54,12 +53,29 @@ def generate_content_task(self, topic: str, angle: str, tone: str, image_idea: s
         blog_body = draft.get("blog", {}).get("body", "")
         needs_check = draft.get("needs_human_check", True)
 
+        # Apply QC Verification
+        from agents.qc_agent import QCAgent
+        qc_agent = QCAgent()
+        qc_result = qc_agent.evaluate_draft(draft, topic)
+        
+        status = "pending_review"
+        if qc_result.get("status") == "rejected":
+            status = "qc_rejected"
+            draft["qc_feedback"] = qc_result.get("feedback", "Failed QC standards.")
+
+        # Apply AI Detection Scoring
+        from agents.ai_score_agent import AIScoreAgent
+        ai_agent = AIScoreAgent()
+        ai_score_result = ai_agent.evaluate(blog_body)
+        draft["ai_probability_score"] = ai_score_result.get("ai_probability_score", 100)
+        draft["ai_reasoning"] = ai_score_result.get("reasoning", "")
+
         log = models.ContentLog(
             topic=topic,
             icp_score=score,
             platform="all",
             content=json.dumps(draft),
-            status="pending_review",
+            status=status,
             needs_human_check=needs_check,
         )
         db.add(log)
