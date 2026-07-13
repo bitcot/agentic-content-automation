@@ -15,7 +15,7 @@ def load_brand_context(db: Session, keys: list[str]) -> dict:
 
 class WriterAgent:
     def __init__(self):
-        self.model_name = "claude-opus-4-7"
+        self.model_name = "claude-3-5-sonnet-20241022"
 
     def generate_draft(self, topic: str, angle: str = "", icp_result: dict = None, target_persona: str = "", tone: str = "thought_leader", author_voice: str = "bitcot", image_idea: str = "", use_web_search: bool = False, image_source: str = "ai", pre_researched_context: str = "", db: Session = None) -> dict:
         """

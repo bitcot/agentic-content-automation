@@ -8,7 +8,7 @@ from ddgs import DDGS
 
 class TrendAgent:
     def __init__(self):
-        self.model_name = "claude-opus-4-7"
+        self.model_name = "claude-3-5-sonnet-20241022"
         self.ddgs = DDGS()
 
     def discover_trends(self) -> list:

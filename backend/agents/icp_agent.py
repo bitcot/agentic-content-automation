@@ -14,7 +14,7 @@ def load_brand_context(db: Session, keys: list[str]) -> dict:
 
 class ICPAgent:
     def __init__(self):
-        self.model_name = "claude-opus-4-7"
+        self.model_name = "claude-3-5-sonnet-20241022"
 
     def score_topic(self, topic: str, angle: str = "", target_persona: str = "", db: Session = None) -> dict:
         """

@@ -143,26 +143,6 @@ export default function HumanReviewPanel({
             </>
           )}
 
-          {draftData?.ai_probability_score !== undefined && (
-            <>
-              <div style={{ width: 1, height: 36, background: 'var(--rule-strong)' }} />
-              <div title={draftData.ai_reasoning}>
-                <span style={{ fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--muted)' }}>AI Detector</span>
-                <div style={{ 
-                  fontFamily: 'var(--font-mono)', 
-                  fontSize: 11, 
-                  marginTop: 4,
-                  padding: '2px 6px',
-                  borderRadius: 4,
-                  background: draftData.ai_probability_score > 50 ? 'rgba(255, 68, 68, 0.1)' : 'rgba(0, 200, 83, 0.1)',
-                  color: draftData.ai_probability_score > 50 ? '#ff4444' : '#00c853',
-                  display: 'inline-block'
-                }}>
-                  {draftData.ai_probability_score > 50 ? '🔴' : '🟢'} {draftData.ai_probability_score}% AI
-                </div>
-              </div>
-            </>
-          )}
         </div>
 
         <div style={{ display: 'flex', gap: 0 }}>

@@ -6,7 +6,7 @@ from agents.logger import emit_agent_log
 
 class QCAgent:
     def __init__(self):
-        self.model_name = "claude-3-5-sonnet-20240620"
+        self.model_name = "claude-3-5-sonnet-20241022"
 
     def evaluate_draft(self, draft: dict, topic: str) -> dict:
         emit_agent_log("QC Agent", f"Initiating Quality Control review for topic: {topic}")

@@ -10,7 +10,7 @@ from models import ContentLog
 
 class RegenerateAgent:
     def __init__(self):
-        self.model_name = "claude-opus-4-7"
+        self.model_name = "claude-3-5-sonnet-20241022"
 
     def regenerate_content(self, db: Session, content_id: int, target_part: str, feedback: str) -> dict:
         log = db.query(ContentLog).filter(ContentLog.id == content_id).first()

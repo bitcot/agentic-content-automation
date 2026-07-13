@@ -7,7 +7,7 @@ from agents.logger import emit_agent_log
 
 class AIScoreAgent:
     def __init__(self):
-        self.model_name = "claude-3-5-sonnet-20240620"
+        self.model_name = "claude-3-5-sonnet-20241022"
 
     def evaluate(self, content: str) -> dict:
         emit_agent_log("AIScoreAgent", "Scanning content for AI signatures (Burstiness & Perplexity)...")

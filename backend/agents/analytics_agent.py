@@ -17,7 +17,7 @@ class AnalyticsAgent:
         self.ga4_credentials_path = os.getenv("GA4_CREDENTIALS_JSON")
         self.ga4_property_id = os.getenv("GA4_PROPERTY_ID")
         self.linkedin_access_token = os.getenv("LINKEDIN_ACCESS_TOKEN")
-        self.model_name = "claude-opus-4-7"
+        self.model_name = "claude-3-5-sonnet-20241022"
 
     def get_metrics(self) -> AnalyticsMetrics:
         """
